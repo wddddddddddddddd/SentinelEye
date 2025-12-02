@@ -50,6 +50,7 @@ import { ref, onMounted } from 'vue'
 import Chart from 'chart.js/auto'
 import StatCard from '../components/StatCard.vue'
 import FeedbackTable from '../components/FeedbackTable.vue'
+import { getRecentFeedbacks } from '../api/dashboard'
 
 export default {
     name: 'Dashboard',
@@ -89,54 +90,23 @@ export default {
             }
         ])
 
-        const feedbacks = ref([
-            {
-                type: 'feedback',
-                title: '加密的视频教程是.exe.格式的，只能播放几秒就<span class="keyword-match">闪退</span>了...',
-                hasImage: true,
-                time: '2025-7-24 10:10',
-                user: '360fans53539284',
-                status: 'replied'
-            },
-            {
-                type: 'service',
-                title: '求助求助！！！手误更改了桌面和视频的默认路径，改不回去了',
-                hasImage: false,
-                time: '2025-7-23 23:16',
-                user: '火一天天',
-                status: 'pending'
-            },
-            {
-                type: 'solution',
-                title: '电脑被<span class="keyword-match">勒索病毒</span>勒索了，使用360恢复没成功',
-                hasImage: false,
-                time: '2025-7-23 11:17',
-                user: '360fans_VkmDXA',
-                status: 'replied'
-            },
-            {
-                type: 'win10',
-                title: '2025年了，360安全卫士和360杀毒有啥区别？',
-                hasImage: false,
-                time: '2025-7-23 04:28',
-                user: '360fans_UXBirW',
-                status: 'replied'
-            },
-            {
-                type: 'feedback',
-                title: '安全卫士导致系统<span class="keyword-match">蓝屏</span>，重启后无法进入系统',
-                hasImage: true,
-                time: '2025-7-23 15:39',
-                user: '360fans_rQhyyi',
-                status: 'pending'
-            }
-        ])
-
+        const feedbacks = ref([])
         const typeChart = ref(null)
         const trendChart = ref(null)
 
+        const loadFeedbacks = async () => {
+            try {
+                const res = await getRecentFeedbacks(5)   // 调用统一接口
+                feedbacks.value = res.data
+            } catch (err) {
+                console.error("加载反馈失败", err)
+            }
+        }
+
         onMounted(() => {
             // 初始化图表
+            loadFeedbacks()
+
             new Chart(typeChart.value, {
                 type: 'doughnut',
                 data: {
@@ -202,7 +172,8 @@ export default {
             stats,
             feedbacks,
             typeChart,
-            trendChart
+            trendChart,
+            loadFeedbacks
         }
     }
 }
