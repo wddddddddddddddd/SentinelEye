@@ -35,7 +35,32 @@ SentinelEye 彻底解放你：
 
 ## 系统架构图
 
-![SentinelEye 系统架构图](./docs/mermaid-diagram.svg)
+```mermaid
+graph TD
+    A[360用户社区] -->|爬虫| B(Feedback Collector)
+    B --> C{新帖子}
+    C --> D[关键词硬匹配<br/>蓝屏/死机/游戏/嗡嗡响]
+    C --> E[大模型语义理解<br/>Qwen-Max / DeepSeek / GPT-4o]
+    C --> F[多模态视觉识别<br/>Qwen-VL-Max / GPT-4o<br/>识别蓝屏代码、错误弹窗]
+    
+    D & E & F -->|命中| G[实时通知中心]
+    G --> H[企业微信/飞书@你 + 卡片]
+    G --> I[邮件通知]
+    
+    C --> J[(JSON / MongoDB)]
+    J --> K[FastAPI 服务]
+    K --> L[Vue3 前端仪表盘]
+    K --> M[周报生成服务 → PDF]
+    
+    N[定时任务 APScheduler] --> B
+    N --> M
+
+    classDef ai fill:#E3F2FD,stroke:#1976D2,stroke-width:2px;
+    class E,F ai;
+    classDef notify fill:#FFF3E0,stroke:#FF9800;
+    class G,H,I notify;
+    classDef storage fill:#F3E5F5,stroke:#9C27B0;
+    class J storage;
 
 ## 技术栈（2025 最新实践）
 
@@ -79,6 +104,7 @@ SentinelEye/
 ├── requirements.txt
 ├── docker-compose.yml           # 后续会上
 └── README.md
+```
 
 # 快速开始
 git clone https://github.com/yourname/SentinelEye.git
