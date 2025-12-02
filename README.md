@@ -1,9 +1,10 @@
 # SentinelEye - 智能用户反馈实时监控系统
 
 一个 AI 测试助手  
-7×24h 盯着公司用户社区，一旦出现「蓝屏」「死机」「游戏崩溃」「启动失败」「嗡嗡响」等你负责的问题，立刻企业微信@你，带原文+截图，让你在问题爆发前就复现它
+7×24h 盯着公司用户社区，一旦出现「蓝屏」「死机」「游戏崩溃」「启动失败」「嗡嗡响」等你负责的问题，立刻推推@你，带原文+截图，让你在问题爆发前就复现它
 
 GitHub: [git@github.com:wddddddddddddddd/SentinelEye](https://github.com/wddddddddddddddd/SentinelEye)
+
 作者：一位再也不想每天手动刷论坛的测试开发
 
 ## 项目背景 & 痛点解决
@@ -15,7 +16,7 @@ GitHub: [git@github.com:wddddddddddddddd/SentinelEye](https://github.com/wdddddd
 SentinelEye 彻底解放你：
 - 自动抓取 + 结构化存储所有反馈（含截图）
 - 关键词 + 大模型语义理解 + 多模态视觉识别（识别蓝屏代码、错误弹窗）
-- 命中即秒推企业微信/飞书/邮件
+- 命中即秒推->推推/邮件
 - 前端大屏 + 周/月 Top 问题 + 一键导出 PDF 周报
 
 ## 功能清单
@@ -25,7 +26,7 @@ SentinelEye 彻底解放你：
 | 360社区自动抓取              | Done         | 支持分页、去重、防封                      |
 | FastAPI + Swagger 文档       | Done         | http://localhost:8000/docs                |
 | 关键词硬匹配告警             | Done         | 蓝屏/死机/游戏/嗡嗡响/启动不了等          |
-| 企业微信实时通知（@人+卡片） | Done         | 支持附带原文+截图                         |
+| 推推实时通知（@人+卡片） | Done         | 支持附带原文+截图                         |
 | 大模型语义理解               | In Progress  | Qwen-4L / DeepSeek / GPT-4o               |
 | 多模态图片识别（蓝屏代码）   | In Progress  | Qwen-VL-Max / GPT-4o                      |
 | Vue3 前端仪表盘              | In Progress  | NaiveUI + ECharts                         |
@@ -45,7 +46,7 @@ graph TD
     C1 --> F1[多模态视觉识别<br/>Qwen-VL-Max / GPT-4o<br/>识别蓝屏代码 错误弹窗]
     
     D1 & E1 & F1 -->|命中告警| G1[实时通知中心]
-    G1 --> H1[企业微信 飞书<br/>@你 - 消息卡片]
+    G1 --> H1[推推<br/>@你 - 消息卡片]
     G1 --> I1[邮件通知]
     
     C1 --> J1[(数据存储<br/>JSON / MongoDB)]
@@ -73,7 +74,7 @@ graph TD
 | 数据存储     | 本地 JSON → MongoDB / PostgreSQL                   | 当前 JSON，后面无缝切换数据库     |
 | AI 能力      | 文本理解：通义千问 Qwen-4L / DeepSeek-V3<br>多模态视觉：Qwen-VL-Max / GPT-4o | 免费额度够用，蓝屏代码识别极准    |
 | 向量检索     | Chroma / Qdrant / Milvus（后续接入）               | 语义去重 + 相似问题聚类           |
-| 通知         | 企业微信 Webhook / 飞书 / 邮件                     | 支持 @人 + 富文本卡片 + 附带截图  |
+| 通知         | 推推 / 邮件                     | 支持 @人 + 富文本卡片 + 附带截图  |
 | 前端         | Vue3 + TypeScript + Pinia + NaiveUI + ECharts      | 现代、美观、开箱即用              |
 | 周报生成     | WeasyPrint（主力） / Playwright                    | 纯 Python 一键出高清 PDF          |
 | 定时任务     | APScheduler                                        | 灵活、分钟级灵活调度                |
@@ -92,7 +93,7 @@ SentinelEye/
 │   ├── services/
 │   │   ├── crawler.py           # 爬虫主逻辑
 │   │   ├── storage.py           # JSON/MongoDB 读写封装
-│   │   └── notifier.py          # 企业微信/邮件实时告警
+│   │   └── notifier.py          # 推推/邮件实时告警
 │   ├── api/
 │   │   └── v1/
 │   │       └── feedback.py      # 所有接口路由
@@ -101,7 +102,7 @@ SentinelEye/
 ├── frontend/                    # Vue3 + NaiveUI 大屏（开发中）
 ├── docs/
 │   └── architecture.svg         # 系统架构图（高清矢量）
-├── .env                         # 企业微信 webhook 等密钥
+├── .env                         # 推推 webhook 等密钥
 ├── .gitignore
 ├── requirements.txt
 ├── docker-compose.yml           # 后续会上
