@@ -35,41 +35,52 @@ SentinelEye 彻底解放你：
 
 ## 系统架构图
 
-![SentinelEye 系统架构图](./docs/architecture.svg)
+![SentinelEye 系统架构图](./docs/mermaid-diagram.svg)
 
-层级,技术选型,备注
-爬虫,requests + lxml → Playwright（备选）
-后端,FastAPI + Uvicorn + Pydantic2,自动文档、高性能
-数据存储,本地 JSON → MongoDB / PostgreSQL,当前 JSON，随时可换
-AI 能力,"Qwen-4L / DeepSeek（文本）
-Qwen-VL-Max / GPT-4o（多模态）",免费额度够用，效果炸裂
-向量检索,Chroma / Milvus（后续）,语义搜索历史相似问题
-通知,企业微信 Webhook / 飞书 / 邮件,支持富文本+图片
-前端,Vue3 + TypeScript + Pinia + NaiveUI,现代、漂亮、开箱即用
-周报生成,WeasyPrint / Playwright,纯 Python 生成 PDF
-定时任务,APScheduler,灵活易用
-部署,Docker + Docker Compose,一键部署
+## 技术栈（2025 最新实践）
 
-## 项目架构图
+| 层级         | 技术选型                                           | 备注                              |
+|--------------|----------------------------------------------------|-----------------------------------|
+| 爬虫         | requests + lxml（主力）<br>Playwright（备选）      | 稳定抗封，动态页面直接上 Playwright |
+| 后端         | FastAPI + Uvicorn + Pydantic v2                    | 自动 OpenAPI 文档，性能拉满       |
+| 数据存储     | 本地 JSON → MongoDB / PostgreSQL                   | 当前 JSON，后面无缝切换数据库     |
+| AI 能力      | 文本理解：通义千问 Qwen-4L / DeepSeek-V3<br>多模态视觉：Qwen-VL-Max / GPT-4o | 免费额度够用，蓝屏代码识别极准    |
+| 向量检索     | Chroma / Qdrant / Milvus（后续接入）               | 语义去重 + 相似问题聚类           |
+| 通知         | 企业微信 Webhook / 飞书 / 邮件                     | 支持 @人 + 富文本卡片 + 附带截图  |
+| 前端         | Vue3 + TypeScript + Pinia + NaiveUI + ECharts      | 现代、美观、开箱即用              |
+| 周报生成     | WeasyPrint（主力） / Playwright                    | 纯 Python 一键出高清 PDF          |
+| 定时任务     | APScheduler                                        | 灵活、分钟级灵活调度                |
+| 部署         | Docker + Docker Compose                            | 一键容器化，上云/服务器随便跑     |
+
+## 项目结构
+
+```bash
 SentinelEye/
 ├── backend/
-│   ├── main.py                  # FastAPI 入口
-│   ├── core/config.py
-│   ├── models/feedback.py     # Pydantic 模型
+│   ├── main.py                  # FastAPI 启动入口
+│   ├── core/
+│   │   └── config.py             # 配置 & 密钥管理
+│   ├── models/
+│   │   feedback.py              # Pydantic 数据模型
 │   ├── services/
-│   │   ├── crawler.py           # 爬虫
-│   │   ├── storage.py           # 数据读写
-│   │   └── notifier.py          # 告警（开发中）
-│   ├── api/v1/feedback.py       # 接口
+│   │   ├── crawler.py           # 爬虫主逻辑
+│   │   ├── storage.py           # JSON/MongoDB 读写封装
+│   │   └── notifier.py          # 企业微信/邮件实时告警
+│   ├── api/
+│   │   └── v1/
+│   │       └── feedback.py      # 所有接口路由
 │   └── data/
-│       └── feedbacks.json
-├── frontend/                    # Vue3 项目
-├── .env
+│       └── feedbacks.json       # 抓取的数据（git 可忽略）
+├── frontend/                    # Vue3 + NaiveUI 大屏（开发中）
+├── docs/
+│   └── architecture.svg         # 系统架构图（高清矢量）
+├── .env                         # 企业微信 webhook 等密钥
+├── .gitignore
 ├── requirements.txt
+├── docker-compose.yml           # 后续会上
 └── README.md
 
 # 快速开始
-# 克隆项目
 git clone https://github.com/yourname/SentinelEye.git
 cd SentinelEye
 
@@ -82,7 +93,7 @@ python backend/services/crawler.py
 # 启动服务
 uvicorn backend.main:app --reload --port 8000
 
-## 未来愿景（让领导尖叫的功能）
+# 可优化内容
 
 Agent 自动复现：识别到“启动失败”后自动启动虚拟机按用户描述操作复现
 问题聚类：用 Embedding 把相似问题聚类，提前发现批量故障
