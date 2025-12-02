@@ -1,0 +1,53 @@
+# ========================
+# Python / FastAPI
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+*.venv/
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+*.sqlite3
+*.log
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VSCode（如果你也用）
+.vscode/
+
+# ========================
+# Node / Vue 3
+# ========================
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 本地环境变量
+.env.local
+.env.*.local
+
+# ========================
+# OS / System files
+# ========================
+.DS_Store
+Thumbs.db
+*.swp
+
+# ========================
+# Others
+# ========================
+*.bak
+*.tmp
