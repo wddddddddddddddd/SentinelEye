@@ -1,9 +1,9 @@
 # SentinelEye - 智能用户反馈实时监控系统
 
-一个专为你量身打造的 AI 测试助手  
+一个 AI 测试助手  
 7×24h 盯着公司用户社区，一旦出现「蓝屏」「死机」「游戏崩溃」「启动失败」「嗡嗡响」等你负责的问题，立刻企业微信@你，带原文+截图，让你在问题爆发前就复现它
 
-GitHub: https://github.com/yourname/SentinelEye  
+GitHub: [git@github.com:wddddddddddddddd/SentinelEye](https://github.com/wddddddddddddddd/SentinelEye)
 作者：一位再也不想每天手动刷论坛的测试开发
 
 ## 项目背景 & 痛点解决
@@ -61,6 +61,7 @@ graph TD
     class G,H,I notify;
     classDef storage fill:#F3E5F5,stroke:#9C27B0;
     class J storage;
+```
 
 ## 技术栈（2025 最新实践）
 
