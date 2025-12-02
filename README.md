@@ -37,31 +37,31 @@ SentinelEye 彻底解放你：
 
 ```mermaid
 graph TD
-    A[360用户社区] -->|爬虫抓取| B(Feedback Collector)
-    B --> C{检测到新帖子}
+    A1[360用户社区] -->|爬虫抓取| B1(Feedback Collector)
+    B1 --> C1{检测到新帖子}
     
-    C --> D[关键词硬匹配<br/><small>蓝屏/死机/游戏/嗡嗡响/崩溃</small>]
-    C --> E[大模型语义理解<br/><small>Qwen-Max / DeepSeek / GPT-4o</small>]
-    C --> F[多模态视觉识别<br/><small>Qwen-VL-Max / GPT-4o<br/>识别蓝屏代码、错误弹窗</small>]
+    C1 --> D1[关键词硬匹配<br/>蓝屏/死机/游戏/嗡嗡响/崩溃]
+    C1 --> E1[大模型语义理解<br/>Qwen-Max / DeepSeek / GPT-4o]
+    C1 --> F1[多模态视觉识别<br/>Qwen-VL-Max / GPT-4o<br/>识别蓝屏代码 错误弹窗]
     
-    D & E & F -->|命中告警| G[实时通知中心]
-    G --> H[企业微信/飞书<br/>@你 + 消息卡片]
-    G --> I[邮件通知]
+    D1 & E1 & F1 -->|命中告警| G1[实时通知中心]
+    G1 --> H1[企业微信 飞书<br/>@你 - 消息卡片]
+    G1 --> I1[邮件通知]
     
-    C --> J[(数据存储<br/>JSON / MongoDB)]
-    J --> K[FastAPI 服务]
-    K --> L[Vue3 前端仪表盘]
-    K --> M[自动生成 PDF 周报]
+    C1 --> J1[(数据存储<br/>JSON / MongoDB)]
+    J1 --> K1[FastAPI 服务]
+    K1 --> L1[Vue3 前端仪表盘]
+    K1 --> M1[自动生成 PDF 周报]
     
-    N[定时任务<br/>APScheduler] --> B
-    N --> M
+    N1[定时任务<br/>APScheduler] --> B1
+    N1 --> M1
 
-    classDef ai fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
-    classDef notify fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
-    classDef storage fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
-    class E,F ai
-    class G,H,I notify
-    class J storage
+    classDef ai fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef notify fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef storage fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    class E1,F1 ai
+    class G1,H1,I1 notify
+    class J1 storage
 ```
 
 ## 技术栈（2025 最新实践）
