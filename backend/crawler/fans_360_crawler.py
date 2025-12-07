@@ -269,6 +269,6 @@ def save_json(items: List[PostItem], filename: str = "result.json"):
 # ------------------------------
 if __name__ == "__main__":
     start = 1
-    end = 2  # 根据需要改为更多页
+    end = 15  # 根据需要改为更多页
     posts = crawl_forum(start, end)
     save_json(posts, "../data/360_forum.json")
