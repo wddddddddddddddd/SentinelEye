@@ -31,7 +31,8 @@ export default {
         blue: 'bg-blue-100',
         orange: 'bg-orange-100',
         red: 'bg-red-100',
-        green: 'bg-green-100'
+        green: 'bg-green-100',
+        purple: 'bg-purple-100'
       }
       return classes[this.color] || 'bg-gray-100'
     },
@@ -40,7 +41,8 @@ export default {
         blue: 'text-blue-500',
         orange: 'text-orange-500',
         red: 'text-red-500',
-        green: 'text-green-500'
+        green: 'text-green-500',
+        purple: 'text-purple-500'
       }
       return classes[this.color] || 'text-gray-500'
     },

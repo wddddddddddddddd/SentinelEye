@@ -100,6 +100,7 @@ export default {
         '人工服务': 'service',
         '解决方案': 'solution',
         'win10专区': 'win10',
+        '安全资讯': 'security',
         '其他': 'other'
       }
       return categoryMap[category] || 'other'

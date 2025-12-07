@@ -26,7 +26,7 @@
         </div>
 
         <div class="p-4 border-t text-center text-sm text-gray-500">
-            <p>安全监控系统 v2.1</p>
+            <p>安全监控系统 v1.0</p>
         </div>
     </div>
 </template>
