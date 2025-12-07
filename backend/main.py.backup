@@ -46,7 +46,7 @@ async def root():
     }
 
 # 仪表盘统计API
-@app.get("/api/dashboard/stats", response_model=DashboardStats)
+@app.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_statistics(limit: Optional[int] = None):
     """
     获取仪表盘统计数据
@@ -74,7 +74,7 @@ async def get_dashboard_statistics(limit: Optional[int] = None):
         raise HTTPException(status_code=500, detail=f"获取仪表盘数据失败: {str(e)}")
 
 
-@app.get("/api/dashboard/summary", response_model=DashboardSummary)
+@app.get("/dashboard/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(limit: int = 10, recent_limit: int = 5):
     """
     获取仪表盘摘要信息
@@ -131,7 +131,7 @@ async def get_dashboard_summary(limit: int = 10, recent_limit: int = 5):
         raise HTTPException(status_code=500, detail=f"获取仪表盘摘要失败: {str(e)}")
 
 
-@app.get("/api/feedback/recent")
+@app.get("/feedback/recent")
 async def get_recent_feedbacks(limit: int = 5):
     """
     获取最近的反馈
@@ -149,7 +149,7 @@ async def get_recent_feedbacks(limit: int = 5):
         raise HTTPException(status_code=500, detail=f"获取反馈数据失败: {str(e)}")
 
 
-@app.get("/api/feedback/all")
+@app.get("/feedback/all")
 async def get_all_feedbacks():
     """
     获取所有反馈数据
@@ -179,12 +179,12 @@ async def health_check():
     }
 
 # 关键字 CRUD API
-@app.get("/api/keywords")
+@app.get("/keywords")
 def get_keywords():
     return load_keywords()
 
 # 添加
-@app.post("/api/keywords")
+@app.post("/keywords")
 def add_keyword(item: Keyword):
     keywords = load_keywords()
     print(type(keywords))
@@ -196,7 +196,7 @@ def add_keyword(item: Keyword):
     return {"message": "添加成功", "keywords": keywords}
 
 # ---- 删除关键词 ----
-@app.delete("/api/keywords/{keyword}")
+@app.delete("/keywords/{keyword}")
 def delete_keyword(keyword: str):
     keywords = load_keywords()
 
@@ -208,7 +208,7 @@ def delete_keyword(keyword: str):
     return {"message": "删除成功", "keywords": keywords}
 
 # ---- 修改关键词 ----
-@app.put("/api/keywords")
+@app.put("/keywords")
 def update_keyword(old: str, new: str):
     keywords = load_keywords()
 
@@ -224,7 +224,7 @@ def update_keyword(old: str, new: str):
     return {"message": "更新成功", "keywords": keywords}
 
 
-@app.get("/api/dashboard/chart-data")
+@app.get("/dashboard/chart-data")
 async def get_chart_data(days: int = 7, keyword_days: int = 3):
     """获取图表数据
 

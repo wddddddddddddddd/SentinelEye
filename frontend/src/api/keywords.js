@@ -1,36 +1,28 @@
 import axios from 'axios'
 
-// 根据环境设置 baseURL
-const baseURL = import.meta.env.DEV 
-    ? 'http://localhost:8888' 
-    : '/api'
-
+// 生产环境统一使用 /api 前缀
 const apiClient = axios.create({
-    baseURL: baseURL,
+    baseURL: '/api',
     timeout: 10000
 })
 
-// 获取关键词列表
 export const getKeywords = () => {
   return apiClient.get('/keywords')
 }
 
-// 添加关键词
 export const addKeyword = (keyword) => {
   return apiClient.post('/keywords', { keyword })
 }
 
-// 删除关键词
 export const deleteKeyword = (keyword) => {
   return apiClient.delete(`/keywords/${encodeURIComponent(keyword)}`)
 }
 
-// 更新关键词
 export const updateKeyword = (oldKeyword, newKeyword) => {
   return apiClient.put('/keywords', null, {
-    params: { 
-      old: oldKeyword, 
-      new: newKeyword 
+    params: {
+      old: oldKeyword,
+      new: newKeyword
     }
   })
 }

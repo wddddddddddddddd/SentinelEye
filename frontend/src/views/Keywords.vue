@@ -312,9 +312,9 @@
 <script>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
-
+//import { getKeywords, addKeyword, updateKeyword, deleteKeyword } from '../api/keywords.js'
+//const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+const API_BASE = '/api'  // 直接使用 /api，由Nginx代理
 export default {
   name: 'Keywords',
   setup() {
