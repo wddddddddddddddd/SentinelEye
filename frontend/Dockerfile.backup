@@ -1,6 +1,6 @@
 # frontend/Dockerfile
 # 构建阶段
-FROM node:20-alpine as build-stage
+FROM node:18-alpine as build-stage
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装依赖（使用 npm ci 保证一致性）
-RUN npm ci --registry=https://registry.npmmirror.com
+RUN npm ci
 
 # 复制源代码
 COPY . .
