@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fastapi-backend
+    ports:
+      - "8888:8000"  # 主机端口:容器端口
+    environment:
+      - ENVIRONMENT=production
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend:/app  # 开发时启用热重载
+      # - ./backend/data:/app/data  # 如果需要持久化数据
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vue-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+# 如果需要数据库或缓存
+# volumes:
+#   postgres_data:
+#   redis_data:

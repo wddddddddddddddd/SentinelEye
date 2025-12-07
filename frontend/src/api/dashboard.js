@@ -1,8 +1,13 @@
 import axios from 'axios'
 
+// 根据环境设置 baseURL
+const baseURL = import.meta.env.DEV 
+    ? 'http://localhost:8888' 
+    : '/api'
+
 const apiClient = axios.create({
-    baseURL: 'http://localhost:8888',
-    timeout: 10000  // 稍微延长超时时间
+    baseURL: baseURL,
+    timeout: 10000
 })
 
 // 获取最近的反馈 
