@@ -7,6 +7,16 @@ GitHub: [git@github.com:wddddddddddddddd/SentinelEye](https://github.com/wdddddd
 
 作者：一位再也不想每天手动刷论坛的测试开发
 
+## 未完成功能思路（todo list）：
+- 爬虫 -> 定时增量爬虫
+- 优化后端main.py
+- 优化数据分析代码
+- 增加数据分析页面后端逻辑代码
+- 生成周报 多专家agent协同（Langchain1.0）
+- 邮箱通知
+- 域名 反向代理
+- 数据存储 json -> ndjson -> mongodb
+
 ## 项目背景 & 痛点解决
 
 - 每天手动翻几十页论坛找自己模块的问题，太累且容易漏
