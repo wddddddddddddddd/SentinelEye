@@ -290,7 +290,7 @@
                 </div>
                 <div>
                   <h4 class="font-medium text-gray-800">错误弹窗</h4>
-                  <p class="text-xs text-red-600 mt-1">已启用</p>
+                  <p class="text-xs text-red-600 mt-1">未启用</p>
                 </div>
               </div>
               <p class="text-sm text-gray-600">检测用户截图中是否包含系统错误弹窗</p>
@@ -311,10 +311,8 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
-//import { getKeywords, addKeyword, updateKeyword, deleteKeyword } from '../api/keywords.js'
-//const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
-const API_BASE = '/api'  // 直接使用 /api，由Nginx代理
+import { getKeywords, addKeyword as apiAddKeyword, updateKeyword as apiUpdateKeyword, deleteKeyword as apiDeleteKeyword } from '../api/keywords.js'
+
 export default {
   name: 'Keywords',
   setup() {
@@ -357,7 +355,7 @@ export default {
       error.value = null
 
       try {
-        const response = await axios.get(`${API_BASE}/keywords`)
+        const response = await getKeywords()
         keywords.value = response.data || []
       } catch (err) {
         console.error('获取关键词失败:', err)
@@ -369,7 +367,7 @@ export default {
     }
 
     // 添加关键词
-    const addKeyword = async () => {
+    const addKeywordHandler = async () => {
       const keyword = newKeyword.value.trim()
 
       if (!keyword) {
@@ -386,7 +384,7 @@ export default {
       newKeywordError.value = ''
 
       try {
-        const response = await axios.post(`${API_BASE}/keywords`, { keyword })
+        const response = await apiAddKeyword(keyword)
         keywords.value = response.data.keywords || []
         newKeyword.value = ''
 
@@ -441,13 +439,7 @@ export default {
       savingEdit.value = true
 
       try {
-        const response = await axios.put(`${API_BASE}/keywords`, null, {
-          params: {
-            old: oldKeyword,
-            new: newKeywordValue
-          }
-        })
-
+        const response = await apiUpdateKeyword(oldKeyword, newKeywordValue)
         keywords.value = response.data.keywords || []
         closeEditModal()
 
@@ -479,7 +471,7 @@ export default {
       deleting.value = true
 
       try {
-        const response = await axios.delete(`${API_BASE}/keywords/${encodeURIComponent(deletingKeyword.value)}`)
+        const response = await apiDeleteKeyword(deletingKeyword.value)
         keywords.value = response.data.keywords || []
         closeDeleteModal()
 
@@ -528,7 +520,7 @@ export default {
 
       // 方法
       fetchKeywords,
-      addKeyword,
+      addKeyword: addKeywordHandler, // 注意这里重命名了，避免冲突
       openEditModal,
       closeEditModal,
       saveEditKeyword,
@@ -540,7 +532,6 @@ export default {
   }
 }
 </script>
-
 <style scoped>
 /* 动画效果 */
 @keyframes fadeIn {

@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <div class="flex min-h-screen">
-      <Sidebar />
+      <Sidebar class="sticky-sidebar" />
       <div class="flex-1 p-6 bg-gray-100">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -23,3 +23,22 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sticky-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  /* 重要：避免被拉伸 */
+  height: 100vh;
+}
+
+.content-area {
+  flex: 1;
+}
+</style>

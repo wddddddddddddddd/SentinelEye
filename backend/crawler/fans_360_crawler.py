@@ -1,27 +1,32 @@
-# -*- coding: utf-8 -*-
-import json
+# crawler/fans_360_crawler.py
 import re
 import time
+import logging
 from dataclasses import dataclass, asdict
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict, Any
 from urllib.parse import urljoin
 
 import requests
 from lxml import etree
 from tqdm import tqdm
 
+from config.settings import CRAWLER_CONFIG
+from core.mongo_client import mongodb_client
+
 # ------------------------------
 # 配置
 # ------------------------------
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/142.0.0.0 Safari/537.36"
-    )
-}
-BASE_FORUM = "https://bbs.360.cn/forum.php?mod=forumdisplay&fid=140&page={}"
-SITE_DOMAIN = "https://bbs.360.cn/"
+HEADERS = CRAWLER_CONFIG["headers"]
+BASE_FORUM = CRAWLER_CONFIG["base_forum"]
+SITE_DOMAIN = CRAWLER_CONFIG["site_domain"]
+MAX_PAGES_PER_RUN = CRAWLER_CONFIG["max_pages_per_run"]
+REQUEST_TIMEOUT = CRAWLER_CONFIG["request_timeout"]
+RETRY_TIMES = CRAWLER_CONFIG["retry_times"]
+DELAY_BETWEEN_POSTS = CRAWLER_CONFIG["delay_between_posts"]
+DELAY_BETWEEN_PAGES = CRAWLER_CONFIG["delay_between_pages"]
+
+logger = logging.getLogger(__name__)
+
 
 # ------------------------------
 # 数据类
@@ -41,29 +46,104 @@ class PostItem:
     content: str
     images: List[str]
 
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，标准化时间格式"""
+        import time
+        from datetime import datetime
+
+        # 标准化 created_at 格式
+        created_at_original = self.created_at
+        created_at_standard = self.created_at
+
+        # 解析时间戳（用于排序）
+        created_timestamp = 0
+
+        try:
+            # 标准化日期格式：2025-12-7 08:53 → 2025-12-07 08:53:00
+            if created_at_original:
+                # 分割日期和时间
+                parts = created_at_original.strip().split()
+                if len(parts) >= 1:
+                    # 标准化日期部分
+                    date_part = parts[0]
+                    date_parts = date_part.split('-')
+                    if len(date_parts) == 3:
+                        year, month, day = date_parts
+                        month = month.zfill(2)  # 12 → 12
+                        day = day.zfill(2)  # 7 → 07
+                        date_std = f"{year}-{month}-{day}"
+                    else:
+                        date_std = date_part
+
+                    # 标准化时间部分
+                    time_std = "00:00:00"
+                    if len(parts) >= 2:
+                        time_part = parts[1]
+                        time_parts = time_part.split(':')
+                        if len(time_parts) >= 2:
+                            hour = time_parts[0].zfill(2)
+                            minute = time_parts[1].zfill(2)
+                            second = time_parts[2].zfill(2) if len(time_parts) >= 3 else "00"
+                            time_std = f"{hour}:{minute}:{second}"
+
+                    created_at_standard = f"{date_std} {time_std}"
+
+                    # 转换为时间戳
+                    try:
+                        dt = datetime.strptime(created_at_standard, "%Y-%m-%d %H:%M:%S")
+                        created_timestamp = int(dt.timestamp())
+                    except:
+                        # 如果解析失败，使用当前时间戳
+                        created_timestamp = int(time.time())
+        except Exception as e:
+            logger.warning(f"标准化时间格式失败 {created_at_original}: {e}")
+            created_timestamp = int(time.time())
+
+        return {
+            "post_id": self.post_id,
+            "title": self.title,
+            "username": self.username,
+            "category": self.category,
+            "status": self.status,
+            "has_attachment": self.has_attachment,
+            "created_at": created_at_standard,  # 标准化后的时间
+            "created_at_original": created_at_original,  # 保留原始值
+            "created_at_timestamp": created_timestamp,  # 时间戳（用于排序）
+            "view_count": self.view_count,
+            "reply_count": self.reply_count,
+            "url": self.url,
+            "content": self.content,
+            "images": self.images,
+            "crawl_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "crawl_timestamp": int(time.time())
+        }
+
 
 # ------------------------------
 # 网络工具
 # ------------------------------
-def safe_get_text(url: str, retries: int = 3, timeout: int = 10) -> Optional[str]:
-    """带重试的简单 GET（返回 text），空 url 会直接返回 None"""
+def safe_get_text(url: str, retries: int = RETRY_TIMES, timeout: int = REQUEST_TIMEOUT) -> Optional[str]:
+    """带重试的GET请求"""
     if not url:
         return None
+
     for i in range(retries):
         try:
             resp = requests.get(url, headers=HEADERS, timeout=timeout)
             if resp.status_code == 200:
                 return resp.text
-            # 非200也短暂等待再试
+            logger.warning(f"请求失败 {url}: 状态码 {resp.status_code}")
             time.sleep(0.5)
         except Exception as e:
-            # 轻量打印，用于调试
-            # print(f"[WARN] 请求异常 ({i+1}/{retries}): {e}")
+            logger.debug(f"请求异常 ({i + 1}/{retries}) {url}: {e}")
             time.sleep(0.5)
+
+    logger.error(f"请求失败，已达最大重试次数: {url}")
     return None
 
 
 def fetch_tree(url: str) -> Optional[etree._Element]:
+    """获取页面并解析为HTML树"""
     txt = safe_get_text(url)
     if txt:
         return etree.HTML(txt)
@@ -74,7 +154,7 @@ def fetch_tree(url: str) -> Optional[etree._Element]:
 # 辅助解析函数
 # ------------------------------
 def get_tbody_list(tree: etree._Element):
-    """获取帖子 tbody 列表，兼容 separatorline"""
+    """获取帖子tbody列表"""
     sep = tree.xpath("//tbody[@id='separatorline']")
     if sep:
         return tree.xpath("//tbody[@id='separatorline']/following-sibling::tbody")
@@ -82,15 +162,18 @@ def get_tbody_list(tree: etree._Element):
 
 
 def extract_main_content(tree: etree._Element):
-    """从详情页提取楼主文本和图片（更容错）"""
+    """提取正文内容和图片"""
     try:
         main = tree.xpath('(//td[contains(@class, "t_f")])[1]')
         if not main:
             return "", []
         main = main[0]
+
+        # 提取文本
         texts = main.xpath('.//text()')
         exclude_keywords = ['下载附件', '360社区', '上传', '本帖最后由', '编辑', 'KB', 'MB', 'B']
         parts = []
+
         for t in texts:
             s = t.strip()
             if not s:
@@ -99,12 +182,13 @@ def extract_main_content(tree: etree._Element):
                 continue
             if re.match(r'^\(\d+\.?\d*\s*(KB|MB|B)\)$', s):
                 continue
-            # 排除看起来像文件名但没有中文的
             if '.' in s and not re.search(r'[\u4e00-\u9fff]', s):
                 continue
             parts.append(s)
+
         content = "\n".join(parts)
 
+        # 提取图片
         imgs = []
         for img in main.xpath('.//img'):
             zoom = img.get('zoomfile')
@@ -113,23 +197,20 @@ def extract_main_content(tree: etree._Element):
                 continue
             if src.endswith('.gif'):
                 continue
-            # 完整化相对 url
             src = urljoin(SITE_DOMAIN, src)
             imgs.append(src)
+
         return content, imgs
-    except Exception:
+    except Exception as e:
+        logger.error(f"提取正文失败: {e}")
         return "", []
 
 
 def find_detail_href_from_tbody(tbody) -> Optional[str]:
-    """
-    更稳健地从 tbody 中找到详情页链接：
-    - 优先选择 href 中包含 'thread-' 或 'viewthread.php' 的 a 标签
-    - 如果找不到，则返回第一个 href（并做相对地址拼接）
-    """
-    # 在 div[2] 下找所有 a 标签
+    """从tbody中提取详情页链接"""
     a_list = tbody.xpath('./tr/th/div[2]//a[@href]')
     hrefs = []
+
     for a in a_list:
         h = a.get('href')
         if h:
@@ -140,17 +221,17 @@ def find_detail_href_from_tbody(tbody) -> Optional[str]:
         if 'thread-' in h or 'viewthread.php' in h:
             return urljoin(SITE_DOMAIN, h)
 
-    # 回退到第一个可用 href
+    # 回退
     if hrefs:
         return urljoin(SITE_DOMAIN, hrefs[0])
+
     return None
 
 
-def safe_int(value):
-    """从字符串里提取整数，失败返回 0"""
+def safe_int(value) -> int:
+    """安全转换整数"""
     if not value:
         return 0
-    # 去掉逗号、空白
     v = str(value).strip().replace(',', '')
     m = re.search(r'(\d+)', v)
     if m:
@@ -164,111 +245,249 @@ def safe_int(value):
 # ------------------------------
 # 解析单条帖子
 # ------------------------------
-def parse_tbody(tbody) -> PostItem:
-    # 初始化空字段
-    post_id = tbody.get("id") or ""
-    category_el = tbody.xpath('./tr/th/div[2]/a[1]/span/text()')
-    has_category = bool(category_el)
+def parse_tbody(tbody) -> Optional[PostItem]:
+    """解析单个tbody为PostItem"""
+    try:
+        # post_id
+        post_id = tbody.get("id") or ""
+        if not post_id:
+            logger.warning("未找到post_id")
+            return None
 
-    if has_category:
-        title_el = tbody.xpath('./tr/th/div[2]/a[2]/text()')
-        category = category_el[0].strip()
-    else:
-        title_el = tbody.xpath('./tr/th/div[2]/a[1]/text()')
-        category = ""
+        # 分类和标题
+        category_el = tbody.xpath('./tr/th/div[2]/a[1]/span/text()')
+        has_category = bool(category_el)
 
-    title = title_el[0].strip() if title_el else ""
-
-    username = ''.join(tbody.xpath('./tr/th/div[2]/div/span[1]/a/text()')).strip()
-    created_at = ''.join(tbody.xpath('./tr/th/div[2]/div/span[3]/text()')).strip()
-
-    # 状态与附件
-    alt_list = tbody.xpath('./tr/th/div[2]/img/@alt')
-    has_attachment = "attach_img" in alt_list
-    status = next((x for x in alt_list if x != "attach_img"), "")
-
-    view_count = ''.join(tbody.xpath('./tr/th/div[2]/div/a[2]/text()')).strip()
-    reply_count = ''.join(tbody.xpath('./tr/th/div[2]/div/a[1]/text()')).strip()
-
-    # 细化解析 url（更稳健）
-    url = find_detail_href_from_tbody(tbody) or ""
-
-    # 请求详情页提取正文和图片
-    content = ""
-    images: List[str] = []
-    if url:
-        html = safe_get_text(url)
-        if html:
-            detail_tree = etree.HTML(html)
-            content, images = extract_main_content(detail_tree)
+        if has_category:
+            title_el = tbody.xpath('./tr/th/div[2]/a[2]/text()')
+            category = category_el[0].strip() if category_el else ""
         else:
-            # 如果请求失败，可以尝试短暂休眠再试一次
-            time.sleep(0.6)
-            html = safe_get_text(url, retries=1)
+            title_el = tbody.xpath('./tr/th/div[2]/a[1]/text()')
+            category = ""
+
+        title = title_el[0].strip() if title_el else ""
+
+        # 用户信息
+        username = ''.join(tbody.xpath('./tr/th/div[2]/div/span[1]/a/text()')).strip()
+        created_at = ''.join(tbody.xpath('./tr/th/div[2]/div/span[3]/text()')).strip()
+
+        # 状态和附件
+        alt_list = tbody.xpath('./tr/th/div[2]/img/@alt')
+        has_attachment = "attach_img" in alt_list
+        status = next((x for x in alt_list if x != "attach_img"), "")
+
+        # 统计信息
+        view_count = ''.join(tbody.xpath('./tr/th/div[2]/div/a[2]/text()')).strip()
+        reply_count = ''.join(tbody.xpath('./tr/th/div[2]/div/a[1]/text()')).strip()
+
+        # 详情页链接
+        url = find_detail_href_from_tbody(tbody) or ""
+
+        # 提取正文和图片
+        content = ""
+        images = []
+        if url:
+            html = safe_get_text(url)
             if html:
                 detail_tree = etree.HTML(html)
                 content, images = extract_main_content(detail_tree)
+            else:
+                # 重试一次
+                time.sleep(0.6)
+                html = safe_get_text(url, retries=1)
+                if html:
+                    detail_tree = etree.HTML(html)
+                    content, images = extract_main_content(detail_tree)
 
-    return PostItem(
-        post_id=post_id,
-        title=title,
-        username=username,
-        category=category,
-        status=status,
-        has_attachment=has_attachment,
-        created_at=created_at,
-        view_count=safe_int(view_count),
-        reply_count=safe_int(reply_count),
-        url=url,
-        content=content,
-        images=images
-    )
+        return PostItem(
+            post_id=post_id,
+            title=title,
+            username=username,
+            category=category,
+            status=status,
+            has_attachment=has_attachment,
+            created_at=created_at,
+            view_count=safe_int(view_count),
+            reply_count=safe_int(reply_count),
+            url=url,
+            content=content,
+            images=images
+        )
+
+    except Exception as e:
+        logger.error(f"解析帖子失败: {e}")
+        return None
 
 
 # ------------------------------
-# 主爬取流程（带 tqdm）
+# 增量爬取核心逻辑（修复版）
 # ------------------------------
-def crawl_forum(start_page: int = 1, end_page: int = 3) -> List[PostItem]:
-    results: List[PostItem] = []
-    pages = range(start_page, end_page + 1)
-    for p in tqdm(pages, desc="Pages"):
-        forum_url = BASE_FORUM.format(p)
+def incremental_crawl(start_page: int = 1, max_pages: int = MAX_PAGES_PER_RUN) -> Tuple[int, int, int]:
+    """
+    增量爬取 - 遇到重复立即停止当前页面
+
+    Returns:
+        (成功插入数, 重复数, 爬取总数)
+    """
+    logger.info(f"开始增量爬取: 从第{start_page}页开始，最多{max_pages}页")
+
+    success_count = 0
+    duplicate_count = 0
+    crawled_count = 0
+    stop_crawling = False  # 控制是否停止整个爬取
+
+    # 计算结束页
+    end_page = start_page + max_pages - 1
+
+    for page_num in tqdm(range(start_page, end_page + 1), desc="页面进度"):
+        if stop_crawling:
+            logger.info("已遇到重复数据，停止爬取")
+            break
+
+        forum_url = BASE_FORUM.format(page_num)
+        logger.debug(f"正在爬取第{page_num}页: {forum_url}")
+
+        # 获取页面
         tree = fetch_tree(forum_url)
         if tree is None:
-            tqdm.write(f"[WARN] 页面获取失败: {forum_url}")
+            logger.warning(f"页面获取失败: {forum_url}")
+            continue
+
+        # 获取帖子列表
+        tbodys = get_tbody_list(tree)
+        if not tbodys:
+            logger.warning(f"未找到帖子列表: {forum_url}")
+            continue
+
+        page_success = 0
+        page_duplicate = 0
+
+        # 处理当前页的每个帖子
+        for tbody in tqdm(tbodys, desc=f"第{page_num}页帖子", leave=False):
+            if stop_crawling:
+                break
+
+            # 解析帖子
+            post_item = parse_tbody(tbody)
+            if not post_item:
+                continue
+
+            crawled_count += 1
+
+            # 检查是否已存在
+            if mongodb_client.feedback_exists(post_item.post_id):
+                logger.info(f"发现重复post_id: {post_item.post_id}，停止当前页面爬取")
+                duplicate_count += 1
+                stop_crawling = True  # 立即停止当前页面
+                break  # 跳出当前页面的循环
+
+            # 转换为字典并插入
+            post_dict = post_item.to_dict()
+            if mongodb_client.insert_feedback(post_dict):
+                page_success += 1
+                success_count += 1
+            else:
+                page_duplicate += 1
+                duplicate_count += 1
+
+            # 帖子间延时
+            time.sleep(DELAY_BETWEEN_POSTS)
+
+        logger.info(f"第{page_num}页完成: 插入{page_success}条，重复{page_duplicate}条")
+
+        # 如果当前页没有成功插入任何新数据（可能都是重复的）
+        if page_success == 0 and len(tbodys) > 0:
+            logger.info(f"第{page_num}页没有新数据，可能已到最新位置")
+            stop_crawling = True
+            break
+
+        # 页间延时
+        if not stop_crawling:
+            time.sleep(DELAY_BETWEEN_PAGES)
+
+    total_count = success_count + duplicate_count
+    logger.info(f"增量爬取完成: 成功{success_count}条，重复{duplicate_count}条，总共处理{total_count}条")
+
+    # 验证数据库总数
+    db_count = mongodb_client.count_feedbacks()
+    logger.info(f"数据库当前共有{db_count}条记录")
+
+    return success_count, duplicate_count, total_count
+
+
+def crawl_specific_pages(start_page: int = 1, end_page: int = 3) -> Tuple[int, int, int]:
+    """
+    爬取指定页码范围（用于首次全量爬取）
+    """
+    logger.info(f"爬取指定页面: {start_page}到{end_page}页")
+
+    success_count = 0
+    duplicate_count = 0
+    crawled_count = 0
+
+    for page_num in tqdm(range(start_page, end_page + 1), desc="页面进度"):
+        forum_url = BASE_FORUM.format(page_num)
+
+        tree = fetch_tree(forum_url)
+        if tree is None:
+            logger.warning(f"页面获取失败: {forum_url}")
             continue
 
         tbodys = get_tbody_list(tree)
         if not tbodys:
-            tqdm.write(f"[WARN] 未在页面找到帖子列表: {forum_url}")
+            logger.warning(f"未找到帖子列表: {forum_url}")
             continue
 
-        for tbody in tqdm(tbodys, desc=f"Page {p} posts", leave=False):
-            try:
-                item = parse_tbody(tbody)
-                results.append(item)
-            except Exception as e:
-                tqdm.write(f"[ERROR] 解析单条失败: {e}")
-            time.sleep(0.15)  # 轻微延时，减缓请求压力
+        page_items = []
+        for tbody in tbodys:
+            post_item = parse_tbody(tbody)
+            if post_item:
+                page_items.append(post_item)
+                crawled_count += 1
+            time.sleep(DELAY_BETWEEN_POSTS)
 
-    return results
+        # 批量插入本页数据
+        if page_items:
+            page_dicts = [item.to_dict() for item in page_items]
+            success, duplicate = mongodb_client.insert_many_feedbacks(page_dicts)
+            success_count += success
+            duplicate_count += duplicate
+            logger.info(f"第{page_num}页: 插入{success}条，重复{duplicate}条")
+
+        time.sleep(DELAY_BETWEEN_PAGES)
+
+    logger.info(f"指定页面爬取完成: 成功{success_count}条，重复{duplicate_count}条")
+    return success_count, duplicate_count, crawled_count
 
 
 # ------------------------------
-# 保存 JSON
+# 测试函数
 # ------------------------------
-def save_json(items: List[PostItem], filename: str = "result.json"):
-    arr = [asdict(i) for i in items]
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(arr, f, ensure_ascii=False, indent=2)
-    print(f"[OK] 保存到 {filename}")
+def test_incremental_crawl():
+    """测试增量爬取"""
+    print("测试增量爬取...")
+
+    # 先显示当前数据库状态
+    count = mongodb_client.count_feedbacks()
+    print(f"数据库当前有{count}条记录")
+
+    # 获取最新一条记录
+    latest = mongodb_client.get_latest_feedback()
+    if latest:
+        print(f"最新记录: {latest.get('post_id')} - {latest.get('title')}")
+
+    # 运行增量爬取（只爬2页测试）
+    success, duplicate, total = incremental_crawl(1, 2)
+
+    print(f"测试结果: 成功{success}条，重复{duplicate}条，总共{total}条")
 
 
-# ------------------------------
-# 主程序
-# ------------------------------
 if __name__ == "__main__":
-    start = 1
-    end = 15  # 根据需要改为更多页
-    posts = crawl_forum(start, end)
-    save_json(posts, "../data/360_forum.json")
+    # 设置日志级别
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # 测试
+    test_incremental_crawl()

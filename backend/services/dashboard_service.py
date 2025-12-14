@@ -9,7 +9,7 @@ from pathlib import Path
 
 from models.dashboard import DashboardStats, TrendData, KeywordTrigger
 from models.feedback import Feedback
-from services.feedback_service import load_feedback_list, DATA_FILE
+# from services.feedback_service import load_feedback_list, DATA_FILE
 
 
 class DashboardService:

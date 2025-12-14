@@ -1,12 +1,12 @@
 # main.py
 from fastapi import FastAPI, HTTPException
 from services.feedback_service import load_feedback_list
-from services.keyword_service import load_keywords, save_keywords
 from models.feedback import Feedback
 from models.keyword import Keyword
 from models.dashboard import DashboardStats, DashboardSummary
 from services.dashboard_service import DashboardService, get_dashboard_stats_from_json
 from fastapi.middleware.cors import CORSMiddleware
+from services import keyword_service
 from services.dashboard_service import DashboardService
 from models.dashboard import DashboardStats
 import uvicorn
@@ -178,50 +178,33 @@ async def health_check():
         "service": "SentinelEye Backend"
     }
 
-# 关键字 CRUD API
 @app.get("/api/keywords")
 def get_keywords():
-    return load_keywords()
+    return keyword_service.load_keywords()
 
-# 添加
+
 @app.post("/api/keywords")
 def add_keyword(item: Keyword):
-    keywords = load_keywords()
-    print(type(keywords))
-    if item.keyword in keywords:
+    success = keyword_service.add_keyword(item.keyword)
+    if not success:
         raise HTTPException(status_code=400, detail="关键词已存在")
+    return {"message": "添加成功", "keywords": keyword_service.load_keywords()}
 
-    keywords.append(item.keyword)
-    save_keywords(keywords)
-    return {"message": "添加成功", "keywords": keywords}
 
-# ---- 删除关键词 ----
 @app.delete("/api/keywords/{keyword}")
 def delete_keyword(keyword: str):
-    keywords = load_keywords()
-
-    if keyword not in keywords:
+    success = keyword_service.delete_keyword(keyword)
+    if not success:
         raise HTTPException(status_code=404, detail="关键词不存在")
+    return {"message": "删除成功", "keywords": keyword_service.load_keywords()}
 
-    keywords.remove(keyword)
-    save_keywords(keywords)
-    return {"message": "删除成功", "keywords": keywords}
 
-# ---- 修改关键词 ----
 @app.put("/api/keywords")
 def update_keyword(old: str, new: str):
-    keywords = load_keywords()
-
-    if old not in keywords:
-        raise HTTPException(status_code=404, detail="原关键词不存在")
-
-    if new in keywords:
-        raise HTTPException(status_code=400, detail="目标关键词已存在")
-
-    index = keywords.index(old)
-    keywords[index] = new
-    save_keywords(keywords)
-    return {"message": "更新成功", "keywords": keywords}
+    success = keyword_service.update_keyword(old, new)
+    if not success:
+        raise HTTPException(status_code=400, detail="更新失败，目标关键词可能已存在")
+    return {"message": "更新成功", "keywords": keyword_service.load_keywords()}
 
 
 @app.get("/api/dashboard/chart-data")

@@ -67,7 +67,7 @@
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <div class="flex items-center mb-4">
                         <i class="fas fa-key text-purple-500 text-lg mr-2"></i>
-                        <h4 class="text-lg font-semibold text-gray-700">近3天关键词触发 Top 5</h4>
+                        <h4 class="text-lg font-semibold text-gray-700">AI分析问题结果</h4>
                     </div>
                     <div v-if="keywordStats && keywordStats.length > 0" class="grid grid-cols-2 md:grid-cols-5 gap-3">
                         <div v-for="item in keywordStats" :key="item.keyword"
@@ -184,7 +184,7 @@ export default {
                         color: 'red'
                     },
                     {
-                        title: '紧急反馈',
+                        title: 'AI Check',
                         value: data.today_urgent.toString(), // 今日紧急反馈数
                         icon: 'fas fa-fire',
                         trend: {
@@ -233,7 +233,7 @@ export default {
                     color: 'red'
                 },
                 {
-                    title: '紧急反馈',
+                    title: 'AI Check',
                     value: '0',
                     icon: 'fas fa-fire',
                     trend: { type: 'normal', value: '数据加载中' },
@@ -311,7 +311,7 @@ export default {
                     '系统急救箱': '#06b6d4',    // 青色
                     '软件管家': '#ec4899',      // 粉色
                     '网购安全': '#84cc16',      // 黄绿色
-                    '未分类': '#94a3b8'         // 灰色
+                    '未分类': '#94a3b8',         // 灰色
                 }
                 return colorMap[category] || '#94a3b8'
             }
