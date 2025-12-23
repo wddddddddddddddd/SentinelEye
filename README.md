@@ -17,6 +17,7 @@ GitHub: [git@github.com:wddddddddddddddd/SentinelEye](https://github.com/wdddddd
 - 域名 反向代理
 - ~~数据存储 json -> ndjson -> mongodb~~
 - 添加AI-check用于确认蓝屏反馈信息的问题解析->AI输出
+- 数据分析Agent 来填充数据分析页面
 
 ## 项目背景 & 痛点解决
 
