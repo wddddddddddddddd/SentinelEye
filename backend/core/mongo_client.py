@@ -1,4 +1,4 @@
-# db.py
+# core/mongo_client.py
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
@@ -12,9 +12,12 @@ client = MongoClient(MONGO_URI)
 # 获取数据库实例
 db = client[DB_NAME]
 
+# 获取反馈集合
+feedbacks_collection = db.feedbacks
+
 # 测试连接
 try:
     client.admin.command('ping')
-    print("MongoDB 连接成功")
+    print("✅ MongoDB 连接成功")
 except ConnectionFailure:
-    print("MongoDB 连接失败")
+    print("❌ MongoDB 连接失败")
