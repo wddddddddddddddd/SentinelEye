@@ -14,6 +14,7 @@ db = client[DB_NAME]
 
 # 获取反馈集合
 feedbacks_collection = db.feedbacks
+keywords_collection = db.keywords
 
 # 测试连接
 try:

@@ -4,7 +4,7 @@ from typing import Optional, List
 
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
-
+from contextlib import asynccontextmanager
 ## feedback 相关导入
 from services.feedback_service import (
     get_recent_feedbacks,
@@ -14,11 +14,24 @@ from services.feedback_service import (
 )
 from schemas.feedback import FeedbackResponse
 
+## keyword 相关导入
+from schemas.keyword import KeywordCreate, KeywordUpdate
+from services import keyword_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时
+    keyword_service.init_indexes()
+    yield
+    # 关闭时（这里暂时不需要做事）
+
 # 创建FastAPI应用实例
 app = FastAPI(
     title="SentinelEye Backend API",
     description="监控反馈系统后端API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # 配置CORS
@@ -86,3 +99,43 @@ async def api_get_all_feedbacks():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取反馈数据失败: {str(e)}")
     
+## keyword CRUD
+@app.get("/api/keywords")
+def get_keywords():
+    return keyword_service.load_keywords()
+
+
+@app.post("/api/keywords")
+def add_keyword(item: KeywordCreate):
+    success = keyword_service.add_keyword(item.keyword)
+    if not success:
+        raise HTTPException(status_code=400, detail="关键词已存在")
+    return {
+        "message": "添加成功",
+        "keywords": keyword_service.load_keywords()
+    }
+
+
+@app.delete("/api/keywords/{keyword}")
+def delete_keyword(keyword: str):
+    success = keyword_service.delete_keyword(keyword)
+    if not success:
+        raise HTTPException(status_code=404, detail="关键词不存在")
+    return {
+        "message": "删除成功",
+        "keywords": keyword_service.load_keywords()
+    }
+
+
+@app.put("/api/keywords")
+def update_keyword(item: KeywordUpdate):
+    success = keyword_service.update_keyword(item.old, item.new)
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail="更新失败，目标关键词可能已存在或原关键词不存在"
+        )
+    return {
+        "message": "更新成功",
+        "keywords": keyword_service.load_keywords()
+    }
