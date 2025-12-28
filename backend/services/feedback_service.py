@@ -1,11 +1,12 @@
 # services/feedback_service.py
 from typing import List, Optional
 from datetime import datetime, date, timedelta
+# 修改为从 pymongo 导入
 from bson import ObjectId
 
-from core.mongo_client import feedbacks_collection
-from models.feedback import FeedbackInDB
-from schemas.feedback import FeedbackResponse
+from backend.core.mongo_client import feedbacks_collection
+from backend.models.feedback import FeedbackInDB
+from backend.schemas.feedback import FeedbackResponse
 
 
 def _format_datetime(dt: datetime) -> str:
@@ -235,43 +236,25 @@ def get_feedbacks_in_date_range(
     end_date: date,
     include_end_day: bool = True
 ) -> List[dict]:
-    """
-    获取指定日期范围内的所有帖子原始数据
-    
-    Args:
-        start_date: 开始日期（包含）
-        end_date: 结束日期（是否包含取决于include_end_day）
-        include_end_day: 是否包含结束当天，默认为True
-        
-    Returns:
-        日期范围内的原始文档列表
-    """
     try:
-        # 开始时间（包含）
         start_datetime = datetime.combine(start_date, datetime.min.time())
         
-        # 结束时间
         if include_end_day:
-            # 包含结束当天：小于结束日期的下一天00:00:00
-            end_datetime = datetime.combine(
-                end_date + timedelta(days=1),
-                datetime.min.time()
-            )
-            end_condition = {"$lt": end_datetime}
+            # 包含结束当天：到 end_date + 1 的 00:00:00
+            end_datetime = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
         else:
-            # 不包含结束当天：小于结束当天的00:00:00
+            # 不包含结束当天
             end_datetime = datetime.combine(end_date, datetime.min.time())
-            end_condition = {"$lt": end_datetime}
         
         query = {
             "created_at": {
                 "$gte": start_datetime,
-                **end_condition
+                "$lt": end_datetime
             }
         }
         
-        print(f"[DEBUG] 查询日期范围: start={start_date}, end={end_date}, "
-              f"include_end={include_end_day}, query={query}")
+        print(f"[DEBUG] 查询日期范围: {start_date} ~ {end_date} "
+              f"(include_end={include_end_day}), query={query}")
         
         cursor = feedbacks_collection.find(query).sort("created_at", 1)
         
@@ -281,7 +264,7 @@ def get_feedbacks_in_date_range(
             item_dict['_id'] = str(item_dict['_id'])
             result.append(item_dict)
         
-        print(f"[DEBUG] 找到 {len(result)} 条范围内记录")
+        print(f"[DEBUG] 找到 {len(result)} 条记录")
         return result
         
     except Exception as e:

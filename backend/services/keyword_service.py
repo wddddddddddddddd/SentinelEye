@@ -4,7 +4,7 @@ from datetime import datetime
 from pymongo.errors import DuplicateKeyError
 from pymongo import ASCENDING
 
-from core.mongo_client import keywords_collection
+from backend.core.mongo_client import keywords_collection
 
 
 def init_indexes():

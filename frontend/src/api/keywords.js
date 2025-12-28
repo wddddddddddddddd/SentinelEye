@@ -42,10 +42,9 @@ export const deleteKeyword = (keyword) => {
 }
 
 export const updateKeyword = (oldKeyword, newKeyword) => {
-  return apiClient.put('/api/keywords', null, {
-    params: {
-      old: oldKeyword,
-      new: newKeyword
-    }
+  // 正确：第二个参数是请求体
+  return apiClient.put('/api/keywords', {
+    old: oldKeyword,
+    new: newKeyword
   })
 }

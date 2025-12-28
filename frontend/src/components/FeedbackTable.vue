@@ -38,7 +38,7 @@
                 </button>
               </div>
             </td>
-            <td class="py-4 px-6 whitespace-nowrap">{{ formatTime(feedback.created_at) }}</td>
+            <td class="py-4 px-6 whitespace-nowrap">{{ feedback.created_at }}</td>
             <td class="py-4 px-6">{{ feedback.username }}</td>
             <td class="py-4 px-6">
               <div class="flex items-center">
@@ -81,7 +81,7 @@ export default {
         category: feedback.category || '其他',
         status: feedback.status || '待处理',
         has_attachment: feedback.has_attachment || (feedback.images && feedback.images.length > 0),
-        created_at: feedback.created_at || new Date().toISOString(),
+        created_at: feedback.created_at,
         view_count: feedback.view_count || 0,
         reply_count: feedback.reply_count || 0,
         url: feedback.url || '#',
@@ -131,39 +131,6 @@ export default {
       }
       return 'red'
     },
-
-    // 格式化时间
-    formatTime(timeString) {
-      if (!timeString) return ''
-
-      // 尝试解析时间字符串
-      try {
-        const date = new Date(timeString)
-        if (isNaN(date.getTime())) {
-          // 如果不是标准的Date字符串，直接返回原字符串
-          return timeString
-        }
-
-        // 如果是今天，显示时间
-        const today = new Date()
-        if (date.toDateString() === today.toDateString()) {
-          return date.toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        }
-
-        // 如果是今年，显示月-日 时:分
-        if (date.getFullYear() === today.getFullYear()) {
-          return `${date.getMonth() + 1}-${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
-        }
-
-        // 其他情况显示完整日期
-        return date.toLocaleDateString('zh-CN')
-      } catch (error) {
-        return timeString
-      }
-    }
   }
 }
 </script>

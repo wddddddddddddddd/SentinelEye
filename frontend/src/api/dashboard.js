@@ -28,16 +28,6 @@ export const getDashboardStats = (limit = null) => {
     })
 }
 
-// 新增：获取仪表盘摘要（包含趋势和分类）
-export const getDashboardSummary = (limit = 100, recentLimit = 5) => {
-    return apiClient.get('/api/dashboard/summary', {
-        params: { 
-            limit: limit,
-            recent_limit: recentLimit 
-        }
-    })
-}
-
 // 新增：获取所有反馈
 export const getAllFeedbacks = () => {
     return apiClient.get('/api/feedback/all')
@@ -56,18 +46,10 @@ export const getTrendData = (days = 7) => {
 }
 
 // 获取图表数据
-export const getChartData = (days = 7, keywordDays = 3) => {
+export const getChartData = (days = 7) => {
     return apiClient.get('/api/dashboard/chart-data', {
         params: { 
             days: days,
-            keyword_days: keywordDays  // 新增参数
         }
-    })
-}
-
-// 获取数据分析数据
-export const getAnalyticsData = (days = 7) => {
-    return apiClient.get('/api/analytics/data', {
-        params: { days }
     })
 }

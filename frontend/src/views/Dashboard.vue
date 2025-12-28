@@ -124,9 +124,13 @@ export default {
             try {
                 loading.value = true
                 const res = await getDashboardStats()
-                const data = res.data
-
-                console.log("仪表盘数据:", data)
+                const data = res.data || {}
+                console.log("数据字段检查:", {
+                    today_feedbacks: data.today_feedbacks,
+                    type: typeof data.today_feedbacks,
+                    today_urgent: data.today_urgent,
+                    type_urgent: typeof data.today_urgent
+                })
 
                 // 1. 今日新增反馈 - 显示增长率
                 const feedbackGrowthText = data.feedback_growth_rate !== 0
@@ -138,24 +142,30 @@ export default {
                     ? `${data.pending_difference > 0 ? '较昨日增加' : '较昨日减少'} ${Math.abs(data.pending_difference)}个`
                     : '与昨日持平'
 
+                console.log("pendingDiffText:", pendingDiffText)
+
                 // 3. 关键词触发 - 显示最近3天情况
                 const keywordTriggers = data.recent_keyword_triggers || []
-                const totalKeywords = keywordTriggers.reduce((sum, item) => sum + item.count, 0)
-                const topKeywords = keywordTriggers.slice(0, 3).map(k => k.keyword).join('、')
+                const totalKeywords = keywordTriggers.reduce((sum, item) => {
+                    console.log("关键词item:", item, "count:", item.count)
+                    return sum + (item.count || 0)
+                }, 0)
+                const topKeywords = keywordTriggers.slice(0, 3).map(k => k.keyword || '').filter(k => k).join('、')
                 const keywordText = keywordTriggers.length > 0
                     ? `近3天触发${totalKeywords}次，主要关键词：${topKeywords}`
                     : '近3天无关键词触发'
+                // 计算真实变化量
+                const realChange = (data.today_pending || 0) - (data.yesterday_pending || 0);
 
                 // 4. 紧急反馈 - 今日紧急反馈
                 const urgentText = data.today_urgent > 0
                     ? `今日新增${data.today_urgent}个紧急反馈`
                     : '今日无紧急反馈'
 
-                // 动态设置统计数据
-                stats.value = [
+                const statsArray = [
                     {
                         title: '今日新增反馈',
-                        value: data.today_feedbacks.toString(),
+                        value: String(data.today_feedbacks || 0),
                         icon: 'fas fa-comment-alt',
                         trend: {
                             type: data.feedback_growth_rate > 0 ? 'up' : data.feedback_growth_rate < 0 ? 'down' : 'stable',
@@ -165,17 +175,23 @@ export default {
                     },
                     {
                         title: '待处理问题',
-                        value: data.today_pending.toString(), // 今日待处理数
+                        value: String(data.today_pending || 0),
                         icon: 'fas fa-tasks',
+                        color: 'orange',
                         trend: {
-                            type: data.pending_difference > 0 ? 'alert' : data.pending_difference < 0 ? 'down' : 'stable',
-                            value: pendingDiffText
-                        },
-                        color: 'orange'
+                            type: realChange > 0 ? 'up'   // 堆积，警告
+                                : realChange < 0 ? 'down'    // 减少，好事
+                                    : 'stable',
+                            value: realChange > 0
+                                ? `较昨日增加 ${realChange} 个`
+                                : realChange < 0
+                                    ? `较昨日减少 ${Math.abs(realChange)} 个`
+                                    : '与昨日持平'
+                        }
                     },
                     {
                         title: '关键词触发',
-                        value: totalKeywords.toString(),
+                        value: String(totalKeywords || 0),
                         icon: 'fas fa-exclamation-triangle',
                         trend: {
                             type: totalKeywords > 0 ? 'alert' : 'normal',
@@ -185,7 +201,7 @@ export default {
                     },
                     {
                         title: 'AI Check',
-                        value: data.today_urgent.toString(), // 今日紧急反馈数
+                        value: String(data.today_urgent || 0),
                         icon: 'fas fa-fire',
                         trend: {
                             type: data.today_urgent > 0 ? 'alert' : 'normal',
@@ -194,6 +210,9 @@ export default {
                         color: 'purple'
                     }
                 ]
+
+                console.log("创建的stats数组:", statsArray)
+                stats.value = statsArray
 
                 // 更新关键词统计数据
                 keywordStats.value = keywordTriggers
@@ -255,7 +274,6 @@ export default {
             }
         }
 
-        // 初始化图表
         // 初始化图表
         const initCharts = async () => {
             try {
