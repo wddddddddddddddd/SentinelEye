@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 import uvicorn
 from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
@@ -29,6 +29,16 @@ from backend.services.analytics_service import generate_overview, generate_type_
 ## AI service导入
 from backend.services.ai_analysis_service import get_ai_analysis_by_post_id, get_all_ai_analyses
 
+## report导入
+from backend.services.report_service import report_service
+import os
+
+# ============ 静态文件服务（用于PDF下载） ============
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+from urllib.parse import quote
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动时
@@ -43,6 +53,21 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+# 确保静态文件目录存在
+static_dir = "./static"
+os.makedirs(static_dir, exist_ok=True)
+
+# 获取项目根目录
+BASE_DIR = Path(__file__).parent  # backend目录
+PROJECT_ROOT = BASE_DIR.parent    # 项目根目录
+
+# 静态文件目录 - 使用绝对路径
+static_dir = os.path.join(PROJECT_ROOT, "backend", "static")
+os.makedirs(static_dir, exist_ok=True)
+
+print(f"静态文件目录: {static_dir}")
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # 配置CORS
 app.add_middleware(
@@ -315,3 +340,126 @@ async def ai_analysis_by_post_id(post_id: str):
     if not analysis:
         raise HTTPException(status_code=404, detail="未找到该帖子的AI分析")
     return analysis
+
+
+class ReportGenerateRequest(BaseModel):
+    start_date: str
+    end_date: str
+    report_type: str = "weekly"
+
+
+@app.post("/api/reports/generate", tags=["报告管理"])
+async def generate_report(
+    req: ReportGenerateRequest,
+    background_tasks: BackgroundTasks
+):
+    # 验证日期格式
+    try:
+        datetime.strptime(req.start_date, '%Y-%m-%d')
+        datetime.strptime(req.end_date, '%Y-%m-%d')
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日期格式错误，应为 YYYY-MM-DD")
+
+    result = await report_service.create_report(
+        req.start_date,
+        req.end_date,
+        req.report_type
+    )
+
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    report_id = result["report_id"]
+
+    background_tasks.add_task(
+        report_service.run_report_generation,
+        report_id,
+        req.start_date,
+        req.end_date,
+        req.report_type
+    )
+
+    return {
+        "success": True,
+        "message": "报告生成任务已启动",
+        "data": {
+            "report_id": report_id,
+            "status_url": f"/api/reports/{report_id}/status"
+        }
+    }
+
+@app.get("/api/reports/{report_id}/status", tags=["报告管理"])
+async def get_report_status(report_id: str):
+    """获取报告生成状态"""
+    result = await report_service.get_report_status(report_id)
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["error"])
+    
+    return result
+
+@app.get("/api/reports/{report_id}/content", tags=["报告管理"])
+async def get_report_content(report_id: str):
+    """获取报告内容"""
+    result = await report_service.get_report_content(report_id)
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["error"])
+    
+    return result
+
+@app.get("/api/reports/{report_id}/download", tags=["报告管理"])
+async def download_report(report_id: str):
+    try:
+        result = await report_service.get_report_status(report_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail=result["error"])
+
+        report_data = result["data"]
+        if report_data["status"] != "completed":
+            raise HTTPException(status_code=400, detail="报告尚未完成")
+
+        report_detail = report_service.storage.get_report(report_id)
+        if not report_detail:
+            raise HTTPException(status_code=404, detail="报告不存在")
+
+        pdf_path = report_detail.get("pdf_path")
+        if not pdf_path:
+            raise HTTPException(status_code=404, detail="PDF文件不存在")
+
+        # 统一从 static 目录取
+        filename = os.path.basename(pdf_path)
+        filepath = os.path.join(static_dir, filename)
+
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=404, detail=f"PDF文件不存在: {filename}")
+
+        # ========= 修复点 =========
+        download_name = f"报告_{report_id}.pdf"
+        encoded_name = quote(download_name)
+
+        return FileResponse(
+            filepath,
+            media_type="application/pdf",
+            headers={
+                # RFC 5987 写法，浏览器全支持
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("下载失败:", repr(e))
+        raise HTTPException(status_code=500, detail="下载失败")
+
+@app.get("/api/reports/list", tags=["报告管理"])
+async def list_reports(limit: int = 10):
+    """获取报告列表"""
+    result = await report_service.list_reports(limit)
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    return {
+        "success": True,
+        "count": len(result["data"]),
+        "data": result["data"]
+    }
