@@ -53,3 +53,17 @@ export const getChartData = (days = 7) => {
         }
     })
 }
+
+
+// 获取最近7天有AI分析的帖子（带分析结果）
+export const getRecentAiAnalyses = (limit = 5) => {
+  return apiClient.get('/api/ai-analysis/recent', {
+    params: { limit, days: 7 }
+  })
+}
+
+// 调试阶段用这个：返回全部数据
+export const getAllAiAnalyses = (limit) => {
+  const params = limit ? { limit } : {}
+  return apiClient.get('/api/ai-analysis/all', { params })
+}

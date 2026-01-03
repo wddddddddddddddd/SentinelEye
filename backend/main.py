@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 import uvicorn
 from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
@@ -25,6 +25,9 @@ from backend.services.dashboard_service import today_feedbacks_stats, get_chart_
 
 ## Analytics相关导入
 from backend.services.analytics_service import generate_overview, generate_type_distribution, generate_trend, generate_category_analysis, generate_keyword_analysis, DateRange
+
+## AI service导入
+from backend.services.ai_analysis_service import get_ai_analysis_by_post_id, get_all_ai_analyses
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -278,3 +281,37 @@ async def compare_data(current_range: DateRange, compare_range: DateRange):
                 current_data["overview"]["urgent_feedback"] - compare_data["overview"]["urgent_feedback"]
         }
     }
+
+
+## AI 分析获取接口
+# 保留你原来的 recent 接口（正式用）
+@app.get("/api/ai-analysis/recent")
+async def recent_ai_analyses(
+    limit: int = Query(6, ge=1, le=20),
+    days: int = Query(7, ge=1, le=30)
+):
+    analyses = await get_recent_ai_analyses(limit=limit, days=days)
+    return {"data": analyses}
+
+# 【调试专用】新增返回全部的接口
+@app.get("/api/ai-analysis/all")
+async def all_ai_analyses(
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="不传表示返回全部")
+):
+    """
+    调试用：返回所有 AI 分析记录
+    """
+    try:
+        # 注意：这里虽然是 async 函数，但我们调的 service 是同步的 —— 完全没问题！
+        analyses = get_all_ai_analyses(limit=limit)
+        return analyses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取全部AI分析失败: {str(e)}")
+
+# 根据 post_id 查询单条（推荐使用）
+@app.get("/api/ai-analysis/post/{post_id}")
+async def ai_analysis_by_post_id(post_id: str):
+    analysis = await get_ai_analysis_by_post_id(post_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="未找到该帖子的AI分析")
+    return analysis

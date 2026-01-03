@@ -15,6 +15,7 @@ db = client[DB_NAME]
 # 获取反馈集合
 feedbacks_collection = db.feedbacks
 keywords_collection = db.keywords
+ai_analysis_collection = db.ai_analysis
 
 # 测试连接
 try:

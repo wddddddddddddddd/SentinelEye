@@ -63,30 +63,29 @@
                     </div>
                 </div>
 
-                <!-- 关键词触发统计 -->
+                <!-- AI分析 -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <div class="flex items-center mb-4">
-                        <i class="fas fa-key text-purple-500 text-lg mr-2"></i>
-                        <h4 class="text-lg font-semibold text-gray-700">AI分析问题结果</h4>
+                        <i class="fas fa-brain text-purple-500 text-lg mr-2"></i>
+                        <h4 class="text-lg font-semibold text-gray-700">AI分析问题结果（最近7天）</h4>
                     </div>
-                    <div v-if="keywordStats && keywordStats.length > 0" class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <div v-for="item in keywordStats" :key="item.keyword"
-                            class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center hover:bg-gray-100 transition-colors">
-                            <div class="text-2xl font-bold text-gray-800 mb-1">{{ item.count }}</div>
-                            <div class="text-sm text-gray-600 truncate">{{ item.keyword }}</div>
-                            <div class="text-xs mt-1">
-                                <span :class="{
-                                    'text-green-500': item.trend === 'up',
-                                    'text-red-500': item.trend === 'down',
-                                    'text-gray-500': item.trend === 'stable'
-                                }">
-                                    {{ item.trend === 'up' ? '↑ 上升' : item.trend === 'down' ? '↓ 下降' : '→ 稳定' }}
-                                </span>
-                            </div>
-                        </div>
+
+                    <!-- 加载状态 -->
+                    <div v-if="aiLoading" class="text-center py-12 text-gray-500">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        加载AI分析结果中...
                     </div>
-                    <div v-else class="text-center py-8 text-gray-500">
-                        暂无关键词触发数据
+
+                    <!-- 有数据 -->
+                    <div v-else-if="aiAnalyses && aiAnalyses.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <AiAnalysisCard v-for="item in aiAnalyses" :key="item._id.$oid || item._id" :analysis="item" />
+                    </div>
+
+                    <!-- 无数据 -->
+                    <div v-else class="text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
+                        <i class="fas fa-search text-3xl mb-4 text-gray-400"></i>
+                        <p class="text-lg">最近7天暂无AI分析的帖子</p>
+                        <p class="text-sm mt-2">当有用户反馈包含截图/视频时，AI将自动分析</p>
                     </div>
                 </div>
             </div>
@@ -98,7 +97,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import StatCard from '../components/StatCard.vue'
 import FeedbackTable from '../components/FeedbackTable.vue'
-import { getRecentFeedbacks, getDashboardStats, getChartData } from '../api/dashboard'
+import AiAnalysisCard from '../components/AiAnalysisCard.vue'
+import { getRecentFeedbacks, getDashboardStats, getChartData, getRecentAiAnalyses, getAllAiAnalyses } from '../api/dashboard'
 // 完整引入
 import * as echarts from 'echarts'
 
@@ -106,7 +106,8 @@ export default {
     name: 'Dashboard',
     components: {
         StatCard,
-        FeedbackTable
+        FeedbackTable,
+        AiAnalysisCard
     },
     setup() {
         const stats = ref([])
@@ -118,6 +119,34 @@ export default {
         const tableLoading = ref(false)
         const typeChartInstance = ref(null)  // 使用 ref 管理图表实例
         const trendChartInstance = ref(null) // 使用 ref 管理图表实例
+        const aiAnalyses = ref([])
+        const aiLoading = ref(false)
+
+        // AIAnalysis
+        const fetchAiAnalyses = async () => {
+            aiLoading.value = true
+            try {
+                const res = await getAllAiAnalyses()  // 后端现在直接返回数组
+
+                // 关键：后端直接返回 analyses 数组，所以是 res.data
+                // 万一你以后又改回去，也兼容
+                let list = []
+                if (Array.isArray(res.data)) {
+                    list = res.data
+                } else if (res.data && Array.isArray(res.data.data)) {
+                    list = res.data.data
+                }
+
+                aiAnalyses.value = list
+
+                console.log('AI分析数据加载成功:', aiAnalyses.value)  // 看一眼确认有数据
+            } catch (err) {
+                console.error('获取AI分析失败:', err)
+                aiAnalyses.value = []  // 出错必须是数组！
+            } finally {
+                aiLoading.value = false
+            }
+        }
 
         // 加载统计数据
         const loadStats = async () => {
@@ -293,15 +322,10 @@ export default {
                     feedbacks: []
                 })
 
-                // 3. 更新关键词触发数据
-                keywordStats.value = chartData.keyword_triggers || []
-                console.log('更新后的keywordStats:', keywordStats.value)
-
             } catch (error) {
                 console.error("加载图表数据失败:", error)
                 // 使用默认数据
                 initDefaultCharts()
-                keywordStats.value = []
             }
         }
 
@@ -598,8 +622,12 @@ export default {
 
         // 组件挂载时初始化
         onMounted(async () => {
-            // 初始化时加载所有数据
-            await refreshData()
+            try {
+                await refreshData()        // 先加载最近反馈
+                await fetchAiAnalyses()    // 再加载AI分析
+            } catch (err) {
+                console.error('加载失败:', err)
+            }
         })
 
         // 组件卸载时清理
@@ -622,7 +650,6 @@ export default {
         return {
             stats,
             feedbacks,
-            keywordStats,
             typeChart,
             trendChart,
             loading,
@@ -630,7 +657,10 @@ export default {
             loadFeedbacks,
             refreshData,
             refreshCharts,
-            viewFullAnalysis
+            viewFullAnalysis,
+            AiAnalysisCard,
+            aiAnalyses,
+            aiLoading
         }
     }
 }

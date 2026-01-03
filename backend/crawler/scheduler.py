@@ -4,7 +4,7 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 import logging
 from datetime import datetime
 
-from fans_feedback import crawl_incremental_once  # 👈 你的爬虫函数
+from backend.crawler.fans_feedback import crawl_incremental_once  # 👈 你的爬虫函数
 
 # ======================
 # 日志
