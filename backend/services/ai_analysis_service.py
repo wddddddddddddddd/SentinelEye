@@ -4,7 +4,7 @@ from typing import List, Optional
 from bson import ObjectId
 
 from backend.core.mongo_client import ai_analysis_collection
-
+from datetime import datetime, date, timedelta
 
 def convert_to_dict(doc: dict) -> dict:
     """
@@ -18,8 +18,8 @@ def convert_to_dict(doc: dict) -> dict:
 
 def get_all_ai_analyses(limit: Optional[int] = None) -> List[dict]:
     """
-    【调试专用】获取所有 AI 分析记录，按分析时间倒序
-    完全模仿你 feedback 的写法，稳如老狗
+    获取所有 AI 分析记录，按分析时间倒序
+
     """
     try:
         # 基础查询 + 排序

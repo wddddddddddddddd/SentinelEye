@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import random
 from pydantic import BaseModel
 from typing import Optional, List, Any, Dict
-from backend.services.feedback_service import get_feedbacks_before_date, get_feedbacks_in_date_range
+from backend.services.feedback_service import get_feedbacks_before_date, get_feedbacks_in_date_range, get_analyzed_feedbacks_in_date_range
 from collections import Counter, defaultdict
 import re
 from backend.services.keyword_service import load_keywords
@@ -98,15 +98,18 @@ def generate_overview(start_date: str, end_date: str) -> Dict[str, Any]:
     pending_change = this_week_pending_feedback - last_week_pending_feedback
     resolution_rate = this_week_resolved_feedback - last_week_resolved_feedback / last_week_resolved_feedback * 100
 
+    this_week_ai_check = len(get_analyzed_feedbacks_in_date_range(start_date, end_date))
+    ai_check_week_percentage = round(this_week_ai_check / this_week_total_feedback, 2) * 100
+
     return {
         "total_feedback": this_week_total_feedback,
         "resolved_feedback": this_week_resolved_feedback,
         "pending_feedback": this_week_pending_feedback,
-        "urgent_feedback": random.randint(5, 30),
+        "this_week_ai_check": this_week_ai_check,
         "feedback_growth": feedback_growth,
         "pending_change": pending_change,
         "resolution_rate": resolution_rate,
-        "urgent_percentage": random.randint(5, 15),
+        "ai_check_week_percentage": ai_check_week_percentage,
         # "average_response_time": f"{random.randint(1, 6)}小时",
         # "user_satisfaction": f"{random.randint(80, 98)}%"
     }

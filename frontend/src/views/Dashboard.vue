@@ -126,10 +126,8 @@ export default {
         const fetchAiAnalyses = async () => {
             aiLoading.value = true
             try {
-                const res = await getAllAiAnalyses()  // 后端现在直接返回数组
+                const res = await getAllAiAnalyses()  // 后端直接返回数组
 
-                // 关键：后端直接返回 analyses 数组，所以是 res.data
-                // 万一你以后又改回去，也兼容
                 let list = []
                 if (Array.isArray(res.data)) {
                     list = res.data
@@ -154,13 +152,6 @@ export default {
                 loading.value = true
                 const res = await getDashboardStats()
                 const data = res.data || {}
-                console.log("数据字段检查:", {
-                    today_feedbacks: data.today_feedbacks,
-                    type: typeof data.today_feedbacks,
-                    today_urgent: data.today_urgent,
-                    type_urgent: typeof data.today_urgent
-                })
-
                 // 1. 今日新增反馈 - 显示增长率
                 const feedbackGrowthText = data.feedback_growth_rate !== 0
                     ? `${data.feedback_growth_rate > 0 ? '较昨日增加' : '较昨日减少'} ${Math.abs(data.feedback_growth_rate)}%`
@@ -187,9 +178,9 @@ export default {
                 const realChange = (data.today_pending || 0) - (data.yesterday_pending || 0);
 
                 // 4. 紧急反馈 - 今日紧急反馈
-                const urgentText = data.today_urgent > 0
-                    ? `今日新增${data.today_urgent}个紧急反馈`
-                    : '今日无紧急反馈'
+                const aicheckText = data.ai_difference !== 0
+                    ? `${data.ai_difference > 0 ? '较昨日增加' : '较昨日减少'} ${Math.abs(data.ai_difference)}个`
+                    : '与昨日持平'
 
                 const statsArray = [
                     {
@@ -230,11 +221,17 @@ export default {
                     },
                     {
                         title: 'AI Check',
-                        value: String(data.today_urgent || 0),
+                        value: String(data.today_ai_check || 0),
                         icon: 'fas fa-fire',
                         trend: {
-                            type: data.today_urgent > 0 ? 'alert' : 'normal',
-                            value: urgentText
+                            type: data.ai_difference > 0 ? 'up'   // 堆积，警告
+                                : data.ai_difference < 0 ? 'down'    // 减少，好事
+                                    : 'stable',
+                            value: data.ai_difference > 0
+                                ? `较昨日增加 ${data.ai_difference} 个`
+                                : data.ai_difference < 0
+                                    ? `较昨日减少 ${Math.abs(data.ai_difference)} 个`
+                                    : '与昨日持平'
                         },
                         color: 'purple'
                     }

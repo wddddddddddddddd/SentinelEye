@@ -1,5 +1,33 @@
 <template>
   <div class="min-h-screen bg-gray-50 p-6">
+    <!-- 气泡通知 -->
+    <div v-if="showNotification" class="fixed top-4 right-4 z-50 animate-slide-in-right">
+      <div :class="[
+        'px-6 py-4 rounded-lg shadow-lg border-l-4 flex items-center',
+        notificationType === 'success' ? 'bg-green-50 border-green-500 text-green-800' :
+          notificationType === 'error' ? 'bg-red-50 border-red-500 text-red-800' :
+            notificationType === 'warning' ? 'bg-yellow-50 border-yellow-500 text-yellow-800' :
+              'bg-blue-50 border-blue-500 text-blue-800'
+      ]">
+        <div class="mr-3">
+          <i :class="[
+            'fas text-lg',
+            notificationType === 'success' ? 'fa-check-circle text-green-500' :
+              notificationType === 'error' ? 'fa-exclamation-circle text-red-500' :
+                notificationType === 'warning' ? 'fa-exclamation-triangle text-yellow-500' :
+                  'fa-info-circle text-blue-500'
+          ]"></i>
+        </div>
+        <div>
+          <p class="font-medium">{{ notificationTitle }}</p>
+          <p class="text-sm opacity-90">{{ notificationMessage }}</p>
+        </div>
+        <button @click="showNotification = false" class="ml-4 text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
     <div class="max-w-7xl mx-auto">
       <!-- 标题 -->
       <div class="mb-8">
@@ -30,11 +58,11 @@
               <div class="space-y-3">
                 <div>
                   <span class="text-sm text-gray-500 block mb-1">开始日期</span>
-                  <input type="date" v-model="startDate" class="w-full p-2 border rounded-lg" />
+                  <input type="date" v-model="startDate" :max="endDate" class="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                   <span class="text-sm text-gray-500 block mb-1">结束日期</span>
-                  <input type="date" v-model="endDate" class="w-full p-2 border rounded-lg" />
+                  <input type="date" v-model="endDate" :min="startDate" class="w-full p-2 border rounded-lg" />
                 </div>
               </div>
             </div>
@@ -302,9 +330,14 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { marked } from 'marked'
 
-// API基础URL - 确保使用完整URL
+// API基础URL
 const API_BASE = 'http://127.0.0.1:8888/api/reports'
-console.log('API基础URL:', API_BASE)
+
+// 气泡通知状态
+const showNotification = ref(false)
+const notificationType = ref('info') // success, error, warning, info
+const notificationTitle = ref('')
+const notificationMessage = ref('')
 
 // 所有状态和函数都必须在顶层声明
 const loading = ref(false)
@@ -318,7 +351,6 @@ const previewContent = ref('')
 const previewReportData = ref(null)
 const generationSteps = ref([])
 const pollingInterval = ref(null)
-const apiError = ref('')
 
 // 配置
 const quickOptions = [
@@ -328,38 +360,145 @@ const quickOptions = [
   { label: '上月', value: 'lastMonth' }
 ]
 
+// ============ 气泡通知函数 ============
+
+// 显示气泡通知
+const showToast = (type, message, title = '', duration = 3000) => {
+  notificationType.value = type
+  notificationMessage.value = message
+  notificationTitle.value = title || getDefaultTitle(type)
+  showNotification.value = true
+
+  // 如果已经有通知，先关闭再重新显示
+  clearTimeout(showNotification.timeout)
+
+  showNotification.timeout = setTimeout(() => {
+    showNotification.value = false
+  }, duration)
+}
+
+// 获取默认标题
+const getDefaultTitle = (type) => {
+  switch (type) {
+    case 'success':
+      return '操作成功'
+    case 'error':
+      return '操作失败'
+    case 'warning':
+      return '提示'
+    case 'info':
+      return '信息'
+    default:
+      return '通知'
+  }
+}
+
+// 显示成功通知
+const showSuccess = (message, title = '操作成功') => {
+  showToast('success', message, title)
+}
+
+// 显示错误通知
+const showError = (message, title = '操作失败') => {
+  showToast('error', message, title)
+}
+
+// 显示警告通知
+const showWarning = (message, title = '提示') => {
+  showToast('warning', message, title)
+}
+
+// 显示信息通知
+const showInfo = (message, title = '信息') => {
+  showToast('info', message, title)
+}
+
 // ============ 所有函数都必须在顶层声明 ============
 
-// 设置快速日期
+// 获取当月第一天
+const getFirstDayOfMonth = (date = new Date()) => {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+// 获取当月最后一天
+const getLastDayOfMonth = (date = new Date()) => {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0)
+}
+
+// 获取上月第一天
+const getFirstDayOfLastMonth = (date = new Date()) => {
+  return new Date(date.getFullYear(), date.getMonth() - 1, 1)
+}
+
+// 获取上月最后一天
+const getLastDayOfLastMonth = (date = new Date()) => {
+  return new Date(date.getFullYear(), date.getMonth(), 0)
+}
+
+// 设置快速日期（修复版）
 const setQuickDate = (type) => {
   const now = new Date()
-  const end = new Date()
   let start = new Date()
+  let end = new Date()
 
   switch (type) {
     case '7days':
+      // 最近7天：从7天前到今天
       start.setDate(now.getDate() - 7)
+      end = new Date(now) // 今天
       break
     case '30days':
+      // 最近30天：从30天前到今天
       start.setDate(now.getDate() - 30)
+      end = new Date(now) // 今天
       break
     case 'month':
-      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      // 本月：从当月1号到今天（如果今天不是1号的话）
+      start = getFirstDayOfMonth(now)
+      end = new Date(now) // 今天
+
+      // 如果今天是1号，则设置为当天
+      if (now.getDate() === 1) {
+        start = new Date(now)
+      }
       break
     case 'lastMonth':
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      end = new Date(now.getFullYear(), now.getMonth(), 0)
+      // 上月：从上月1号到上月最后一天
+      start = getFirstDayOfLastMonth(now)
+      end = getLastDayOfLastMonth(now)
       break
   }
 
+  // 格式化日期
   startDate.value = formatDateInput(start)
   endDate.value = formatDateInput(end)
+
+  console.log('快速选择:', type, '开始:', startDate.value, '结束:', endDate.value)
 }
 
 // 生成报告
 const generateReport = async () => {
-  if (loading.value || !startDate.value || !endDate.value) {
-    alert('请选择日期范围')
+  if (loading.value) return
+
+  // 验证日期
+  if (!startDate.value || !endDate.value) {
+    showWarning('请选择日期范围')
+    return
+  }
+
+  const start = new Date(startDate.value)
+  const end = new Date(endDate.value)
+
+  if (start > end) {
+    showWarning('开始日期不能晚于结束日期')
+    return
+  }
+
+  // 验证日期范围不超过一年（可选，根据业务需求调整）
+  const oneYearAgo = new Date()
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+  if (start < oneYearAgo) {
+    showWarning('开始日期不能超过一年前')
     return
   }
 
@@ -367,67 +506,100 @@ const generateReport = async () => {
   generationSteps.value = []
 
   try {
+    console.log('开始生成报告，参数:', {
+      start_date: startDate.value,
+      end_date: endDate.value,
+      report_type: reportType.value
+    })
+
     const response = await axios.post(`${API_BASE}/generate`, {
       start_date: startDate.value,
       end_date: endDate.value,
       report_type: reportType.value
     })
 
+    console.log('生成报告响应:', response.data)
+
     if (response.data.success) {
       const reportId = response.data.data.report_id
       startPollingReportStatus(reportId)
-      alert('报告生成任务已启动，请等待完成...')
+      showInfo('报告生成任务已启动，请等待完成...')
     } else {
-      alert('启动失败: ' + (response.data.error || '未知错误'))
+      showError('启动失败: ' + (response.data.error || '未知错误'))
+      loading.value = false
     }
   } catch (error) {
     console.error('生成失败:', error)
-    alert('生成失败: ' + (error.response?.data?.detail || error.message))
+    let errorMessage = '生成失败: '
+
+    if (error.response) {
+      errorMessage += error.response.data?.detail || error.response.statusText || '服务器错误'
+      console.error('错误详情:', error.response.data)
+    } else if (error.request) {
+      errorMessage += '网络请求失败，请检查网络连接'
+    } else {
+      errorMessage += error.message
+    }
+
+    showError(errorMessage)
     loading.value = false
   }
 }
 
 // 轮询报告状态
 const startPollingReportStatus = (reportId) => {
+  // 清理现有的轮询
   if (pollingInterval.value) {
     clearInterval(pollingInterval.value)
   }
 
+  console.log(`开始轮询报告状态，报告ID: ${reportId}`)
+
   pollingInterval.value = setInterval(async () => {
     try {
       const statusResponse = await axios.get(`${API_BASE}/${reportId}/status`)
+      console.log('轮询状态响应:', statusResponse.data)
 
       if (statusResponse.data.success) {
         const reportData = statusResponse.data.data
 
+        // 更新步骤进度
         generationSteps.value = reportData.steps || []
 
         if (reportData.status === 'completed') {
+          console.log('报告生成完成')
           clearInterval(pollingInterval.value)
           pollingInterval.value = null
           loading.value = false
 
           await loadReportDetails(reportId)
           await loadReportsList()
-          alert('报告生成完成！')
+          showSuccess('报告生成完成！')
         } else if (reportData.status === 'failed') {
+          console.log('报告生成失败:', reportData.error_message)
           clearInterval(pollingInterval.value)
           pollingInterval.value = null
           loading.value = false
-          alert(`报告生成失败: ${reportData.error_message || '未知错误'}`)
+          showError(`报告生成失败: ${reportData.error_message || '未知错误'}`)
         }
       }
     } catch (error) {
       console.error('轮询状态失败:', error)
+      // 不停止轮询，可能是临时网络问题
     }
-  }, 2000)
+  }, 3000) // 每3秒轮询一次
 }
 
 // 加载报告详情
 const loadReportDetails = async (reportId) => {
   try {
+    console.log(`加载报告详情，报告ID: ${reportId}`)
+
     const contentResponse = await axios.get(`${API_BASE}/${reportId}/content`)
     const statusResponse = await axios.get(`${API_BASE}/${reportId}/status`)
+
+    console.log('内容响应:', contentResponse.data)
+    console.log('状态响应:', statusResponse.data)
 
     if (contentResponse.data.success && statusResponse.data.success) {
       const contentData = contentResponse.data.data
@@ -447,6 +619,8 @@ const loadReportDetails = async (reportId) => {
         key_issues: contentData.key_issues || '',
         sentiment_analysis: contentData.sentiment_analysis || {}
       }
+
+      console.log('当前报告设置完成:', currentReport.value)
     }
   } catch (error) {
     console.error('加载报告详情失败:', error)
@@ -458,7 +632,7 @@ const previewReport = async (report) => {
   console.log('previewReport被调用，报告:', report)
 
   if (report.status !== 'completed') {
-    alert('报告尚未完成，无法预览')
+    showWarning('报告尚未完成，无法预览')
     return
   }
 
@@ -472,10 +646,12 @@ const previewReport = async (report) => {
       previewContent.value = marked.parse(response.data.data.markdown || '# 无内容')
     } else {
       previewContent.value = marked.parse('# 加载失败\n\n无法获取报告内容')
+      showError('加载报告内容失败')
     }
   } catch (error) {
     console.error('预览报告失败:', error)
     previewContent.value = marked.parse('# 加载失败\n\n无法获取报告内容')
+    showError('预览报告失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -504,9 +680,11 @@ const downloadPDF = async (reportId) => {
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
 
+    showSuccess('报告下载成功')
+
   } catch (error) {
     console.error('下载失败:', error)
-    alert(
+    showError(
       '下载失败: ' +
       (error.response?.data?.detail || error.message)
     )
@@ -524,7 +702,10 @@ const closePreview = () => {
 // 加载报告列表
 const loadReportsList = async () => {
   try {
+    console.log('加载报告列表...')
     const response = await axios.get(`${API_BASE}/list?limit=10`)
+
+    console.log('报告列表响应:', response.data)
 
     if (response.data.success && Array.isArray(response.data.data)) {
       reports.value = response.data.data.map(report => ({
@@ -542,9 +723,12 @@ const loadReportsList = async () => {
         status: report.status || 'unknown',
         created_at: report.generated_at || report.created_at || new Date().toISOString()
       }))
+
+      console.log('处理后的报告列表:', reports.value)
     }
   } catch (error) {
     console.error('加载报告列表失败:', error)
+    showError('加载报告列表失败')
   }
 }
 
@@ -552,7 +736,11 @@ const loadReportsList = async () => {
 const formatDate = (dateStr) => {
   if (!dateStr) return '未设置'
   try {
-    return new Date(dateStr).toLocaleDateString('zh-CN')
+    return new Date(dateStr).toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
   } catch {
     return dateStr
   }
@@ -571,14 +759,23 @@ const formatTime = (dateStr) => {
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   try {
-    return new Date(dateStr).toLocaleString('zh-CN')
+    return new Date(dateStr).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   } catch {
     return dateStr
   }
 }
 
 const formatDateInput = (date) => {
-  return date.toISOString().split('T')[0]
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 const getDateRangeDays = (start, end) => {
@@ -587,7 +784,7 @@ const getDateRangeDays = (start, end) => {
     const startDate = new Date(start)
     const endDate = new Date(end)
     const diffTime = Math.abs(endDate - startDate)
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // +1 包含起止日期
   } catch {
     return 0
   }
@@ -616,12 +813,33 @@ onUnmounted(() => {
 
 // 初始化
 onMounted(() => {
+  // 默认选择最近7天
   setQuickDate('7days')
   loadReportsList()
+
+  // 添加一些调试信息
+  console.log('组件挂载完成，当前时间:', new Date().toLocaleString('zh-CN'))
 })
 </script>
 
 <style scoped>
+/* 动画效果 */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
 .prose h1 {
   font-size: 1.5rem;
   font-weight: bold;

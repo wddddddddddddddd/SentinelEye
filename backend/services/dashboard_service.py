@@ -2,7 +2,7 @@
 仪表盘数据服务
 """
 from datetime import datetime, date, timedelta
-from backend.services.feedback_service import get_feedbacks_on_date
+from backend.services.feedback_service import get_feedbacks_on_date, get_analyzed_feedbacks_on_date
 from backend.services.keyword_service import load_keywords
 
 
@@ -107,13 +107,11 @@ def today_feedbacks_stats():
         feedback_growth_rate = 100 if count_today_feedbacks > 0 else 0
     
     # 今日紧急反馈数量（根据您的数据结构，需要从content中分析）
-    today_urgent = 0
-    for feedback in today_feedbacks:
-        content = feedback.get('content', '').lower()
-        # 根据关键词判断是否为紧急反馈
-        urgent_keywords = ['蓝屏', '死机', '崩溃', '劫持', '病毒', '紧急', '急', 'crash', 'error']
-        if any(keyword in content for keyword in urgent_keywords):
-            today_urgent += 1
+    today_ai_check =  get_analyzed_feedbacks_on_date(today)
+    yesterday_ai_check = get_analyzed_feedbacks_on_date(yesterday)
+    today_ai_check_num = len(today_ai_check)
+    yesterday_ai_check_num = len(yesterday_ai_check)
+    ai_difference = today_ai_check_num - yesterday_ai_check_num
     
     # 今日待处理问题数量（假设状态为'pending'或'未处理'的）
     today_pending = len([f for f in today_feedbacks if f.get('status') not in ['已解决', '确认解决', '已答复']])
@@ -130,7 +128,8 @@ def today_feedbacks_stats():
         "today_pending": today_pending,
         "yesterday_pending": yesterday_pending,
         "pending_difference": pending_difference,
-        "today_urgent": today_urgent,
+        "today_ai_check": today_ai_check_num,
+        "ai_difference": ai_difference,
         "recent_keyword_triggers": recent_keyword_triggers
     }
     

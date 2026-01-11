@@ -322,3 +322,97 @@ def get_feedbacks_by_date_with_stats(target_date: date) -> dict:
     except Exception as e:
         print(f"[错误] 获取日期统计失败: {e}")
         return {"error": str(e)}
+    
+def get_analyzed_feedbacks_on_date(target_date: date) -> List[dict]:
+    """
+    获取指定日期当天已完成AI分析的帖子原始数据
+    只返回 ai_analyzed 为 True 的帖子，即已解析过的
+    
+    Args:
+        target_date: 目标日期（datetime.date对象）
+        
+    Returns:
+        当天已AI分析帖子的原始文档列表
+    """
+    try:
+        # 计算当天的开始和结束时间（UTC 时区，与 created_at 保持一致）
+        start_date = datetime.combine(target_date, datetime.min.time())
+        end_date = datetime.combine(
+            target_date + timedelta(days=1),
+            datetime.min.time()
+        )
+        
+        # 查询条件：日期范围 + ai_analyzed 为 True
+        query = {
+            "created_at": {
+                "$gte": start_date,
+                "$lt": end_date
+            },
+            "ai_analyzed": True  # 只取已完成AI分析的帖子
+        }
+        
+        print(f"[DEBUG] 查询当天已分析数据: target_date={target_date}, "
+              f"range={start_date} to {end_date}")
+        
+        cursor = feedbacks_collection.find(query).sort("created_at", 1)
+        
+        result = []
+        for item in cursor:
+            item_dict = dict(item)
+            item_dict['_id'] = str(item_dict['_id'])
+            # 可选：额外携带 analysis_id 方便后续查看结果
+            if "analysis_id" in item_dict:
+                item_dict["analysis_id"] = str(item_dict["analysis_id"])
+            result.append(item_dict)
+        
+        print(f"[DEBUG] 找到 {len(result)} 条当天已AI分析记录")
+        return result
+        
+    except Exception as e:
+        print(f"[错误] 获取当天已分析数据失败: {e}")
+        return []
+    
+def get_analyzed_feedbacks_in_date_range(
+    start_date: date,
+    end_date: date,
+    include_end_day: bool = True
+) -> List[dict]:
+    """
+    获取指定日期范围内已完成AI分析的帖子（ai_analyzed == True）
+    """
+    try:
+        # 转换为 datetime（00:00:00）
+        start_datetime = datetime.combine(start_date, datetime.min.time())
+        
+        if include_end_day:
+            # 包含结束当天：查询到 end_date 次日 00:00:00
+            end_datetime = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        else:
+            # 不包含结束当天
+            end_datetime = datetime.combine(end_date, datetime.min.time())
+        
+        query = {
+            "created_at": {
+                "$gte": start_datetime,
+                "$lt": end_datetime
+            },
+            "ai_analyzed": True
+        }
+        
+        print(f"[DEBUG] 查询已分析日期范围: {start_date} ~ {end_date} "
+              f"(include_end={include_end_day}), query={query}")
+        
+        cursor = feedbacks_collection.find(query).sort("created_at", 1)
+        
+        result = []
+        for item in cursor:
+            item_dict = dict(item)
+            item_dict['_id'] = str(item_dict['_id'])
+            result.append(item_dict)
+        
+        print(f"[DEBUG] 找到 {len(result)} 条已AI分析记录")
+        return result
+        
+    except Exception as e:
+        print(f"[错误] 获取已分析日期范围数据失败: {e}")
+        return []

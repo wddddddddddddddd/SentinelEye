@@ -93,6 +93,34 @@ export function getCurrentWeekRange() {
   }
 }
 
+// api/analytics.js 中添加的函数
+export const getWeekRange = (weekOffset = 0) => {
+  const now = new Date()
+  const currentDate = new Date(now)
+  
+  // 调整日期到目标周
+  currentDate.setDate(now.getDate() + (weekOffset * 7))
+  
+  // 获取本周的第一天（周一）
+  const startOfWeek = new Date(currentDate)
+  const day = startOfWeek.getDay()
+  const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1) // 如果周日，则调整到上周一
+  
+  startOfWeek.setDate(diff)
+  startOfWeek.setHours(0, 0, 0, 0)
+  
+  // 获取本周的最后一天（周日）
+  const endOfWeek = new Date(startOfWeek)
+  endOfWeek.setDate(startOfWeek.getDate() + 6)
+  endOfWeek.setHours(23, 59, 59, 999)
+  
+  return {
+    start_date: formatDate(startOfWeek),
+    end_date: formatDate(endOfWeek)
+  }
+}
+
+
 // 格式化日期为 YYYY-MM-DD
 export function formatDate(date) {
   const year = date.getFullYear()

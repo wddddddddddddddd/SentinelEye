@@ -309,14 +309,13 @@ async def compare_data(current_range: DateRange, compare_range: DateRange):
 
 
 ## AI 分析获取接口
-# 保留你原来的 recent 接口（正式用）
-@app.get("/api/ai-analysis/recent")
-async def recent_ai_analyses(
-    limit: int = Query(6, ge=1, le=20),
-    days: int = Query(7, ge=1, le=30)
-):
-    analyses = await get_recent_ai_analyses(limit=limit, days=days)
-    return {"data": analyses}
+# @app.get("/api/ai-analysis/recent")
+# async def recent_ai_analyses(
+#     limit: int = Query(6, ge=1, le=20),
+#     days: int = Query(7, ge=1, le=30)
+# ):
+#     analyses = await get_recent_ai_analyses(limit=limit, days=days)
+#     return {"data": analyses}
 
 # 【调试专用】新增返回全部的接口
 @app.get("/api/ai-analysis/all")
@@ -328,12 +327,13 @@ async def all_ai_analyses(
     """
     try:
         # 注意：这里虽然是 async 函数，但我们调的 service 是同步的 —— 完全没问题！
+        limit = 4
         analyses = get_all_ai_analyses(limit=limit)
         return analyses
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取全部AI分析失败: {str(e)}")
 
-# 根据 post_id 查询单条（推荐使用）
+# 根据 post_id 查询单条
 @app.get("/api/ai-analysis/post/{post_id}")
 async def ai_analysis_by_post_id(post_id: str):
     analysis = await get_ai_analysis_by_post_id(post_id)
