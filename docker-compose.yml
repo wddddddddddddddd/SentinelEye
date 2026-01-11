@@ -1,33 +1,122 @@
-version: '3.8'
-
 services:
+  # ======================
+  # Redis
+  # ======================
+  redis:
+    image: redis:8.0
+    container_name: sentinel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ======================
+  # MongoDB
+  # ======================
+  mongo:
+    image: mongo:7.0
+    container_name: sentinel-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: SentinelEye
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ======================
+  # FastAPI Backend
+  # ======================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: fastapi-backend
+    container_name: sentineleye-backend
     ports:
-      - "8888:8000"  # 主机端口:容器端口
+      - "8888:8000"
+    env_file:
+      - .env
     environment:
-      - ENVIRONMENT=production
       - PYTHONPATH=/app
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/SentinelEye?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
     volumes:
-      - ./backend:/app  # 开发时启用热重载
-      # - ./backend/data:/app/data  # 如果需要持久化数据
+      - ./backend:/app/backend
+    depends_on:
+      - redis
+      - mongo
     restart: unless-stopped
     networks:
       - app-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
+  # ======================
+  # Celery Worker
+  # ======================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sentineleye-worker
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/SentinelEye?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - redis
+      - mongo
+      - backend
+    command: celery -A backend.celery_app.celery worker --pool=solo --loglevel=info
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ======================
+  # Scheduler
+  # ======================
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sentineleye-scheduler
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/SentinelEye?authSource=admin
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - redis
+      - mongo
+      - worker
+    command: python backend/scheduler.py
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ======================
+  # Vue Frontend
+  # ======================
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: vue-frontend
+    container_name: sentineleye-frontend
     ports:
       - "80:80"
     depends_on:
@@ -40,7 +129,6 @@ networks:
   app-network:
     driver: bridge
 
-# 如果需要数据库或缓存
-# volumes:
-#   postgres_data:
-#   redis_data:
+volumes:
+  redis-data:
+  mongo-data:

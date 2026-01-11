@@ -1,14 +1,18 @@
-import os
+import os, sys
+
 from datetime import datetime, timedelta, UTC
 from dotenv import load_dotenv
 
-from backend.crawler.fans_feedback import crawl_until_date, parse_created_at
+# 确保 /app 在路径里
+sys.path.append('/app')
+
+from backend.crawler.fans_feedback import crawl_until_date
 from backend.celery_app.tasks import async_analyze_feedback
 from pymongo import MongoClient
 
 load_dotenv(override=True)
 
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://mongo:27017")
 DB_NAME = os.getenv("DB_NAME", "SentinelEye")
 
 def get_db_connection():

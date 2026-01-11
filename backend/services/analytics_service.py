@@ -73,7 +73,7 @@ class DateRange(BaseModel):
     start_date: str
     end_date: str
 
-# 模拟数据生成函数
+
 def generate_overview(start_date: str, end_date: str) -> Dict[str, Any]:
     """生成概览统计数据"""
 
@@ -93,13 +93,13 @@ def generate_overview(start_date: str, end_date: str) -> Dict[str, Any]:
     last_week_pending_feedback = len([f for f in last_week_feedbacks if f.get('status') not in ['已解决', '确认解决', '已答复']])
     last_week_resolved_feedback = len([f for f in last_week_feedbacks if f.get('status') in ['已解决', '确认解决', '已答复']])
 
-    feedback_growth = this_week_total_feedback - last_week_total_feedback / last_week_total_feedback * 100
+    feedback_growth = round((this_week_total_feedback - last_week_total_feedback / last_week_total_feedback * 100), 2) if last_week_total_feedback > 0 else 0.0
 
     pending_change = this_week_pending_feedback - last_week_pending_feedback
-    resolution_rate = this_week_resolved_feedback - last_week_resolved_feedback / last_week_resolved_feedback * 100
+    resolution_rate = round((this_week_resolved_feedback - last_week_resolved_feedback / last_week_resolved_feedback * 100), 2) if last_week_resolved_feedback > 0 else 0.0
 
     this_week_ai_check = len(get_analyzed_feedbacks_in_date_range(start_date, end_date))
-    ai_check_week_percentage = round(this_week_ai_check / this_week_total_feedback, 2) * 100
+    ai_check_week_percentage = round((this_week_ai_check / this_week_total_feedback  * 100), 2) if this_week_total_feedback > 0 else 0.0
 
     return {
         "total_feedback": this_week_total_feedback,

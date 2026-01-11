@@ -5,7 +5,7 @@ import axios from 'axios'
 const getBaseURL = () => {
   // 开发环境使用本地服务器
   if (import.meta.env.DEV) {
-    return import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8888'
+    return import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8888/api'
   }
   // 生产环境使用 /api 前缀（由 Nginx 代理）
   return '/api'
@@ -30,20 +30,20 @@ apiClient.interceptors.request.use(
 )
 
 export const getKeywords = () => {
-  return apiClient.get('/api/keywords')
+  return apiClient.get('/keywords')
 }
 
 export const addKeyword = (keyword) => {
-  return apiClient.post('/api/keywords', { keyword })
+  return apiClient.post('/keywords', { keyword })
 }
 
 export const deleteKeyword = (keyword) => {
-  return apiClient.delete(`/api/keywords/${encodeURIComponent(keyword)}`)
+  return apiClient.delete(`/keywords/${encodeURIComponent(keyword)}`)
 }
 
 export const updateKeyword = (oldKeyword, newKeyword) => {
   // 正确：第二个参数是请求体
-  return apiClient.put('/api/keywords', {
+  return apiClient.put('/keywords', {
     old: oldKeyword,
     new: newKeyword
   })

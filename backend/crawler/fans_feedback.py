@@ -7,6 +7,8 @@ from lxml import etree
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import DuplicateKeyError
 from backend.core.mongo_client import keywords_collection
+import os
+
 
 # ======================
 # 基础配置
@@ -24,7 +26,16 @@ BASE_URL = "https://bbs.360.cn/forum.php?mod=forumdisplay&fid=140&page={page}"
 # ======================
 # MongoDB 初始化
 # ======================
-client = MongoClient("mongodb://localhost:27017")
+# 从环境变量读取（有默认值，方便本地开发）
+MONGO_URI = os.getenv(
+    "MONGODB_URI",
+    "mongodb://localhost:27017/SentinelEye"
+)
+DB_NAME = os.getenv("DB_NAME", "SentinelEye")
+
+# 初始化客户端
+client = MongoClient(MONGO_URI)
+
 db = client["SentinelEye"]
 collection = db["feedbacks"]
 

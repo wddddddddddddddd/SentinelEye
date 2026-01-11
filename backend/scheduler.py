@@ -52,11 +52,11 @@ def crawl_job():
 scheduler.add_job(
     crawl_job,
     trigger="interval",
-    minutes=1,
+    minutes=60,
     id="incremental_crawler",
     replace_existing=True,
-    max_instances=1,     # 🚨 防止重入
-    coalesce=True        # 🚨 堆积时合并
+    max_instances=1,     # 防止重入
+    coalesce=True        # 堆积时合并
 )
 
 # ======================
@@ -64,5 +64,5 @@ scheduler.add_job(
 # ======================
 if __name__ == "__main__":
     logging.info("SentinelEye 调度器启动")
-    crawl_job()  # 🚀 启动立刻跑一次
+    crawl_job()  # 启动立刻跑一次
     scheduler.start()
