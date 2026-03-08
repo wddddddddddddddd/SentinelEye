@@ -15,29 +15,29 @@ def convert_to_dict(doc: dict) -> dict:
         doc["_id"] = str(doc["_id"])
     return doc
 
-
-def get_all_ai_analyses(limit: Optional[int] = None) -> List[dict]:
+def get_all_ai_analyses(skip: int = 0, limit: int = 10) -> List[dict]:
     """
-    获取所有 AI 分析记录，按分析时间倒序
-
+    获取所有 AI 分析记录（支持分页）
     """
+
     try:
-        # 基础查询 + 排序
-        cursor = ai_analysis_collection.find({"ai_result": {"$exists": True}}) \
-                                      .sort("analyzed_at", -1)
-
-        # 如果有限制条数，手动切片
-        if limit:
-            cursor = cursor.limit(limit)
+        cursor = (
+            ai_analysis_collection
+            .find({"ai_result": {"$exists": True}})
+            .sort("analyzed_at", -1)
+            .skip(skip)
+            .limit(limit)
+        )
 
         analyses = []
-        for doc in cursor:  # 同步遍历，绝对不会报 await list 的错
+
+        for doc in cursor:
             analyses.append(convert_to_dict(doc))
 
         return analyses
 
     except Exception as e:
-        print(f"[错误] 获取全部AI分析失败: {e}")
+        print(f"[错误] 获取AI分析分页失败: {e}")
         return []
 
 

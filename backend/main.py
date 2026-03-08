@@ -4,6 +4,8 @@ from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
 import random
 from datetime import datetime, date, timedelta
+from fastapi import APIRouter, Query, HTTPException
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 ## feedback 相关导入
@@ -318,18 +320,41 @@ async def compare_data(current_range: DateRange, compare_range: DateRange):
 #     return {"data": analyses}
 
 # 【调试专用】新增返回全部的接口
-@app.get("/api/ai-analysis/all")
-async def all_ai_analyses(
+@app.get("/api/ai-analysis/recent")
+async def all_ai_analyses_recent(
     limit: Optional[int] = Query(None, ge=1, le=1000, description="不传表示返回全部")
 ):
     """
     调试用：返回所有 AI 分析记录
     """
     try:
-        # 注意：这里虽然是 async 函数，但我们调的 service 是同步的 —— 完全没问题！
         limit = 4
         analyses = get_all_ai_analyses(limit=limit)
         return analyses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取全部AI分析失败: {str(e)}")
+    
+
+
+@app.get("/api/ai-analysis/all")
+async def all_ai_analyses(
+    skip: int = Query(0, ge=0, description="跳过的记录数(用于分页)"),
+    limit: int = Query(10, ge=1, le=100, description="每次拉取的记录数")
+):
+    """
+    分页获取所有 AI 分析记录，供前端懒加载使用
+    """
+    try:
+        # 你需要确保你的底层数据库查询函数支持 skip 和 limit
+        # 例如 MongoDB: collection.find().skip(skip).limit(limit)
+        analyses = get_all_ai_analyses(skip=skip, limit=limit)
+        
+        # 建议统一返回结构
+        return {
+            "code": 200,
+            "data": analyses,
+            "msg": "success"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取全部AI分析失败: {str(e)}")
 

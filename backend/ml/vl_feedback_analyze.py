@@ -61,11 +61,38 @@ JSON 结构如下（字段不可缺失）：
 # 3. 模型初始化
 # =========================
 
-model = ChatTongyi(
-    model="qwen3-vl-flash",
-    temperature=0.2,
-    max_tokens=1024
-)
+# model = ChatTongyi(
+#     model="qwen3-vl-flash",
+#     temperature=0.2,
+#     max_tokens=1024
+# )
+
+def call_360_llm(messages):
+    """调用360智脑大模型"""
+
+    url = "https://api.360.cn/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('360_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": "openai/gpt-5.2",
+        "messages": messages,
+        "temperature": 0.2,
+        "max_tokens": 1024,
+        "stream": False
+    }
+
+    resp = requests.post(url, headers=headers, json=payload, timeout=60)
+
+    if resp.status_code != 200:
+        raise RuntimeError(f"360 API调用失败: {resp.text}")
+
+    data = resp.json()
+
+    return data["choices"][0]["message"]["content"]
 
 # =========================
 # 4. 工具函数
@@ -86,20 +113,48 @@ def image_url_to_base64(url: str) -> str:
         print(f"⚠️ 图片下载失败: {url}, 错误: {e}")
         return ""
 
+# def build_messages(image_base64: str, forum_text: str):
+#     """构造多模态输入-> Langchain -> Tongyi"""
+#     content = []
+    
+#     # 如果有图片，先添加图片
+#     if image_base64:
+#         content.append({"image": f"data:image/jpeg;base64,{image_base64}"})
+    
+#     # 添加文本
+#     content.append({"text": forum_text})
+    
+#     return [
+#         SystemMessage(content=SYSTEM_PROMPT),
+#         HumanMessage(content=content)
+#     ]
+
 def build_messages(image_base64: str, forum_text: str):
-    """构造多模态输入"""
-    content = []
-    
-    # 如果有图片，先添加图片
+
+    user_content = []
+
     if image_base64:
-        content.append({"image": f"data:image/jpeg;base64,{image_base64}"})
-    
-    # 添加文本
-    content.append({"text": forum_text})
-    
+        user_content.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{image_base64}"
+            }
+        })
+
+    user_content.append({
+        "type": "text",
+        "text": forum_text
+    })
+
     return [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=content)
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+        },
+        {
+            "role": "user",
+            "content": user_content
+        }
     ]
 
 # =========================
@@ -154,18 +209,20 @@ def analyze_post_by_id(post_id: str) -> Dict[str, Any]:
             if not image_base64:
                 print("⚠️ 图片下载失败，将仅使用文本分析")
         
-        # 4. 调用AI模型
+        # 4. 调用AI模型 Langchain
+        # messages = build_messages(image_base64, forum_text)
+        # response = model.invoke(messages)
         messages = build_messages(image_base64, forum_text)
-        response = model.invoke(messages)
+        text_output = call_360_llm(messages)
         
         # 5. 解析AI响应
-        text_output = ""
-        if isinstance(response.content, list):
-            for item in response.content:
-                if "text" in item:
-                    text_output += item["text"]
-        else:
-            text_output = str(response.content)
+        # text_output = ""
+        # if isinstance(response.content, list):
+        #     for item in response.content:
+        #         if "text" in item:
+        #             text_output += item["text"]
+        # else:
+        #     text_output = str(response.content)
         
         # 提取JSON
         try:
@@ -189,7 +246,8 @@ def analyze_post_by_id(post_id: str) -> Dict[str, Any]:
             "feedback_id": str(post["_id"]),  # feedback的_id
             "title": post.get("title", ""),
             "ai_result": ai_result,
-            "model_used": "qwen3-vl-flash",
+            # "model_used": "qwen3-vl-flash",
+            "model_used": "openai/gpt-5.2",
             "analyzed_at": datetime.utcnow(),
             "has_image": bool(image_urls),
             "image_count": len(image_urls)
@@ -249,7 +307,7 @@ def check_if_analyzed(post_id: str) -> bool:
 
 if __name__ == "__main__":
     # 测试用论坛post_id
-    test_post_id = "normalthread_16174804"
+    test_post_id = "normalthread_16175330"
     
     # 或者用feedback的_id
     # test_post_id = "694bfe8d98f0cb12c5146587"

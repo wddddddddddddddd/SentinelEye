@@ -98,7 +98,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import StatCard from '../components/StatCard.vue'
 import FeedbackTable from '../components/FeedbackTable.vue'
 import AiAnalysisCard from '../components/AiAnalysisCard.vue'
-import { getRecentFeedbacks, getDashboardStats, getChartData, getRecentAiAnalyses, getAllAiAnalyses } from '../api/dashboard'
+import { getRecentFeedbacks, getDashboardStats, getChartData, getRecentAiAnalyses } from '../api/dashboard'
 // 完整引入
 import * as echarts from 'echarts'
 
@@ -126,7 +126,7 @@ export default {
         const fetchAiAnalyses = async () => {
             aiLoading.value = true
             try {
-                const res = await getAllAiAnalyses()  // 后端直接返回数组
+                const res = await getRecentAiAnalyses()  // 后端直接返回数组
 
                 let list = []
                 if (Array.isArray(res.data)) {

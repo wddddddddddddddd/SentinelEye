@@ -44,7 +44,7 @@ export default {
             { id: 'dashboard', label: '监控仪表盘', icon: 'fas fa-tachometer-alt', path: '/dashboard' },
             { id: 'analytics', label: '数据分析', icon: 'fas fa-chart-bar', path: '/analytics' },
             { id: 'keywords', label: '关键词管理', icon: 'fas fa-key', path: '/keywords' },
-            { id: 'notifications', label: '通知记录', icon: 'fas fa-bell', path: '/notifications' },
+            { id: 'notifications', label: '通知管理', icon: 'fas fa-bell', path: '/notifications' },
             { id: 'reports', label: '生成报告', icon: 'fas fa-file-pdf', path: '/reports' },
             { id: 'settings', label: '系统设置', icon: 'fas fa-cog', path: '/settings' }
         ])
