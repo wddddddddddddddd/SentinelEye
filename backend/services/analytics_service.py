@@ -81,8 +81,8 @@ def generate_overview(start_date: str, end_date: str) -> Dict[str, Any]:
     end_date = str_to_date(end_date)
     last_start_date = start_date - timedelta(days=7)
     last_end_date = end_date - timedelta(days=7)
+    
     this_week_feedbacks = get_feedbacks_in_date_range(start_date, end_date)
-    # print(this_week_feedbacks)
     last_week_feedbacks = get_feedbacks_in_date_range(last_start_date, last_end_date)
 
     this_week_total_feedback = len(this_week_feedbacks)
@@ -93,13 +93,22 @@ def generate_overview(start_date: str, end_date: str) -> Dict[str, Any]:
     last_week_pending_feedback = len([f for f in last_week_feedbacks if f.get('status') not in ['已解决', '确认解决', '已答复']])
     last_week_resolved_feedback = len([f for f in last_week_feedbacks if f.get('status') in ['已解决', '确认解决', '已答复']])
 
-    feedback_growth = round((this_week_total_feedback - last_week_total_feedback / last_week_total_feedback * 100), 2) if last_week_total_feedback > 0 else 0.0
+    # 计算增长率 - 修正运算符优先级
+    if last_week_total_feedback > 0:
+        feedback_growth = round((this_week_total_feedback - last_week_total_feedback) / last_week_total_feedback * 100, 2)
+    else:
+        feedback_growth = 0.0
 
     pending_change = this_week_pending_feedback - last_week_pending_feedback
-    resolution_rate = round((this_week_resolved_feedback - last_week_resolved_feedback / last_week_resolved_feedback * 100), 2) if last_week_resolved_feedback > 0 else 0.0
+
+    # 计算解决率变化 - 修正运算符优先级
+    if last_week_resolved_feedback > 0:
+        resolution_rate = this_week_resolved_feedback - last_week_resolved_feedback
+    else:
+        resolution_rate = 0.0
 
     this_week_ai_check = len(get_analyzed_feedbacks_in_date_range(start_date, end_date))
-    ai_check_week_percentage = round((this_week_ai_check / this_week_total_feedback  * 100), 2) if this_week_total_feedback > 0 else 0.0
+    ai_check_week_percentage = round((this_week_ai_check / this_week_total_feedback * 100), 2) if this_week_total_feedback > 0 else 0.0
 
     return {
         "total_feedback": this_week_total_feedback,
@@ -110,8 +119,6 @@ def generate_overview(start_date: str, end_date: str) -> Dict[str, Any]:
         "pending_change": pending_change,
         "resolution_rate": resolution_rate,
         "ai_check_week_percentage": ai_check_week_percentage,
-        # "average_response_time": f"{random.randint(1, 6)}小时",
-        # "user_satisfaction": f"{random.randint(80, 98)}%"
     }
 
 def generate_type_distribution(start_date: str, end_date: str) -> List[Dict[str, Any]]:
