@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import random
 from pydantic import BaseModel
 from typing import Optional, List, Any, Dict
@@ -6,6 +6,7 @@ from backend.services.feedback_service import get_feedbacks_before_date, get_fee
 from collections import Counter, defaultdict
 import re
 from backend.services.keyword_service import load_keywords
+
 # 预定义颜色列表（可以扩展）
 PREDEFINED_COLORS = [
     "#10b981",  # emerald
@@ -203,12 +204,27 @@ def generate_trend(start_date: str, end_date: str) -> Dict[str, Any]:
         "series": series
     }
 
+def parse_date(date_str: str) -> date:
+    """尝试多种日期格式解析"""
+    formats = [
+        "%Y-%m-%d",  # 2026-03-02
+        "%Y-%m-%d",  # 2026-3-2 (但strptime不支持无前导零，需要特殊处理)
+    ]
+    
+    # 处理无前导零的情况
+    if re.match(r'^\d{4}-\d{1,2}-\d{1,2}$', date_str):
+        # 将 "2026-3-2" 转换为 "2026-03-02"
+        parts = date_str.split('-')
+        return date(int(parts[0]), int(parts[1]), int(parts[2]))
+    
+    return datetime.strptime(date_str, "%Y-%m-%d").date()
+
 def generate_category_analysis(start_date: str | None = None, end_date: str | None = None) -> List[Dict[str, Any]]:
     """生成分类分析数据：取数量前8的类型（不足则全部）"""
     
     if start_date and end_date:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+        start_dt = parse_date(start_date)
+        end_dt = parse_date(end_date)
         feedbacks = get_feedbacks_in_date_range(start_dt, end_dt, include_end_day=True)
     else:
         # 如果不传日期，就默认周
@@ -217,7 +233,7 @@ def generate_category_analysis(start_date: str | None = None, end_date: str | No
         end_dt = datetime.strptime(default_week_dt['week_end_date'], "%Y.%m.%d").date()
         feedbacks = get_feedbacks_in_date_range(start_dt, end_dt, include_end_day=True)
 
-    
+    print(f"Found {len(feedbacks)} feedbacks")  # 调试
     def normalize_category(cat: Any) -> str:
         return str(cat).strip() if cat and str(cat).strip() else "未知"
     

@@ -52,7 +52,7 @@ def crawl_job():
 scheduler.add_job(
     crawl_job,
     trigger="interval",
-    minutes=60,
+    minutes=40,
     id="incremental_crawler",
     replace_existing=True,
     max_instances=1,     # 防止重入

@@ -230,7 +230,7 @@ async def get_trend(date_range: DateRange):
 @app.post("/api/analytics/category")
 async def get_category_analysis(date_range: DateRange):
     """获取分类分析"""
-    return generate_category_analysis()
+    return generate_category_analysis(date_range.start_date, date_range.end_date)
 
 @app.post("/api/analytics/keywords")
 async def get_keyword_analysis(date_range: DateRange):
@@ -244,7 +244,7 @@ async def get_all_analytics(date_range: DateRange):
         "overview": generate_overview(date_range.start_date, date_range.end_date),
         "type_distribution": generate_type_distribution(date_range.start_date, date_range.end_date),
         "trend": generate_trend(date_range.start_date, date_range.end_date),
-        "category_analysis": generate_category_analysis(),
+        "category_analysis": generate_category_analysis(date_range.start_date, date_range.end_date),
         "keyword_analysis": generate_keyword_analysis(date_range.start_date, date_range.end_date),
     }
 
