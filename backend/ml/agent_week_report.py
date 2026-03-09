@@ -27,7 +27,7 @@ load_dotenv(BASE_DIR / ".env", override=True)
 print(BASE_DIR / ".env")  # ✅ 打印验证路径
 print("DEEPSEEK_API_KEY =", os.getenv("DEEPSEEK_API_KEY"))
 # MongoDB配置
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("DB_NAME", "SentinelEye")
 COL_FEEDBACKS = "feedbacks"
 COL_AI_ANALYSIS = "ai_analysis"

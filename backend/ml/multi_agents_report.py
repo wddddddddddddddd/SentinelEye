@@ -42,7 +42,7 @@ logging.basicConfig(
     ]
 )
 
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "SentinelEye")
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
