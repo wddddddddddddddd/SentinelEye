@@ -521,7 +521,7 @@ const generateReport = async () => {
       report_type: reportType.value
     })
 
-    const response = await axios.post(`${API_BASE}/generate`, {
+    const response = await axios.post(`${API_BASE()}/generate`, {
       start_date: startDate.value,
       end_date: endDate.value,
       report_type: reportType.value
@@ -566,7 +566,7 @@ const startPollingReportStatus = (reportId) => {
 
   pollingInterval.value = setInterval(async () => {
     try {
-      const statusResponse = await axios.get(`${API_BASE}/${reportId}/status`)
+      const statusResponse = await axios.get(`${API_BASE()}/${reportId}/status`)
       console.log('轮询状态响应:', statusResponse.data)
 
       if (statusResponse.data.success) {
@@ -604,8 +604,8 @@ const loadReportDetails = async (reportId) => {
   try {
     console.log(`加载报告详情，报告ID: ${reportId}`)
 
-    const contentResponse = await axios.get(`${API_BASE}/${reportId}/content`)
-    const statusResponse = await axios.get(`${API_BASE}/${reportId}/status`)
+    const contentResponse = await axios.get(`${API_BASE()}/${reportId}/content`)
+    const statusResponse = await axios.get(`${API_BASE()}/${reportId}/status`)
 
     console.log('内容响应:', contentResponse.data)
     console.log('状态响应:', statusResponse.data)
@@ -649,7 +649,7 @@ const previewReport = async (report) => {
   previewReportData.value = report
 
   try {
-    const response = await axios.get(`${API_BASE}/${report.id}/content`)
+    const response = await axios.get(`${API_BASE()}/${report.id}/content`)
 
     if (response.data.success) {
       previewContent.value = marked.parse(response.data.data.markdown || '# 无内容')
@@ -670,7 +670,7 @@ const downloadPDF = async (reportId) => {
 
   try {
     const response = await axios.get(
-      `${API_BASE}/${reportId}/download`,
+      `${API_BASE()}/${reportId}/download`,
       { responseType: 'blob' }
     )
 
@@ -712,7 +712,7 @@ const closePreview = () => {
 const loadReportsList = async () => {
   try {
     console.log('加载报告列表...')
-    const response = await axios.get(`${API_BASE}/list?limit=10`)
+    const response = await axios.get(`${API_BASE()}/list?limit=10`)
 
     console.log('报告列表响应:', response.data)
 
