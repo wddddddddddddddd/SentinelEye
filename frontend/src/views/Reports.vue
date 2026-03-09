@@ -336,10 +336,10 @@ import { marked } from 'marked'
 const API_BASE = () => {
   // 开发环境使用本地服务器
   if (import.meta.env.DEV) {
-    return import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8888/api'
+    return import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8888/api/reports'
   }
   // 生产环境使用 /api 前缀（由 Nginx 代理）
-  return '/api'
+  return '/api/reports'
 }
 
 // 气泡通知状态
