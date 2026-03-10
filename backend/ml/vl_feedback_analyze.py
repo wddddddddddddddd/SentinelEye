@@ -250,7 +250,8 @@ def analyze_post_by_id(post_id: str) -> Dict[str, Any]:
             "model_used": "openai/gpt-5.2",
             "analyzed_at": datetime.utcnow(),
             "has_image": bool(image_urls),
-            "image_count": len(image_urls)
+            "image_count": len(image_urls),
+            "alarm_sent": False
         }
         
         # 7. 保存到AI分析集合

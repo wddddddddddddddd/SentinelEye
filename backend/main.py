@@ -53,7 +53,10 @@ app = FastAPI(
     title="SentinelEye Backend API",
     description="监控反馈系统后端API",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    openapi_url="/api/openapi.json", # 强制 openapi 定义也在 /api 下
+    docs_url="/api/docs",           # 强制文档在 /api/docs
+    redoc_url="/api/redoc",
 )
 # 确保静态文件目录存在
 static_dir = "./static"
@@ -487,4 +490,97 @@ async def list_reports(limit: int = 10):
         "success": True,
         "count": len(result["data"]),
         "data": result["data"]
+    }
+
+# 推推通知接口
+from backend.services.alarm_service import get_pending_alarms, mark_alarm_sent, get_latest_alarm_manual, update_alarm_status, reset_all_alarms
+from fastapi import Body, Header
+
+@app.get("/api/alarm/pending")
+async def pending_alarms(limit: int = 10):
+    """
+    获取待处理的告警列表 (聚合了 feedbacks 和 ai_analysis)
+    """
+    try:
+        # 调用我们之前写的聚合查询逻辑
+        data = get_pending_alarms(limit)
+        
+        return {
+            "success": True,
+            "count": len(data),
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取告警失败: {str(e)}")
+
+@app.post("/api/alarm/mark_sent")
+async def mark_as_sent(payload: dict = Body(...)):
+    """
+    标记告警已发送
+    """
+    post_id = payload.get("post_id")
+    if not post_id:
+        raise HTTPException(status_code=400, detail="缺少 post_id")
+    
+    try:
+        mark_alarm_sent(post_id)
+        return {
+            "success": True,
+            "message": f"Post {post_id} 状态已更新为已发送"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新状态失败: {str(e)}")
+    
+@app.post("/api/alarm/resend_latest")
+async def resend_latest_alarm():
+    """
+    手动触发：获取最近一次告警数据并返回
+    前端拿到这个数据后，可以调用发送逻辑（如发钉钉/飞书）
+    """
+    try:
+        data = get_latest_alarm_manual()
+        
+        if not data:
+            return {
+                "success": False,
+                "message": "数据库中暂无 AI 分析记录"
+            }
+            
+        return {
+            "success": True,
+            "data": data,
+            "message": "已成功获取最近一次告警详情"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"触发手动告警失败: {str(e)}")
+    
+@app.put("/api/alarm/reset_status/{post_id}")
+async def reset_single_status(
+    post_id: str, 
+    status: bool = False, 
+    x_debug_key: Optional[str] = Header(None) # FastAPI会自动把 x-debug-key 映射到这个变量
+):
+    """
+    调试接口：手动修改某条数据的 alarm_sent 状态
+    Postman 调用方式: PUT http://server/api/debug/reset_status/normalthread_123?status=false
+    """
+    if x_debug_key != "tuituitui123": # 只有 Postman 带有这个 Header 才能执行
+        raise HTTPException(status_code=403, detail="Forbidden")
+    success = update_alarm_status(post_id, status)
+    if success:
+        return {"success": True, "message": f"Post {post_id} status updated to {status}"}
+    return {"success": False, "message": "Post ID not found or status unchanged"}
+
+@app.post("/api/alarm/batch_reset")
+async def batch_reset(limit: int = Body(...), x_debug_key: str = Header(None)):
+    """
+    调试接口：一键重置最近 N 条数据为“未发送”状态
+    Postman 调用方式: POST http://server/api/debug/batch_reset  JSON: {"limit": 20}
+    """
+    if x_debug_key != "tuituitui123": # 只有 Postman 带有这个 Header 才能执行
+        raise HTTPException(status_code=403, detail="Forbidden")
+    count = reset_all_alarms(limit)
+    return {
+        "success": True, 
+        "message": f"已重置最近 {count} 条数据的告警状态，Worker 将重新抓取它们。"
     }

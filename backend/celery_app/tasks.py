@@ -158,7 +158,8 @@ def async_analyze_feedback(self, feedback_id: str):
             "ai_result": ai_result,
             "model_used": "360-gpt-5.2",
             "analyzed_at": datetime.utcnow(),
-            "has_image": bool(image_base64)
+            "has_image": bool(image_base64),
+            "alarm_sent": False
         }
         
         # 存入新集合 ai_analysis
