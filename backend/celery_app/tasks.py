@@ -16,7 +16,7 @@ from backend.celery_app import celery  # 确保导入你的 celery 实例
 load_dotenv(override=True)
 
 # 优先检查 360 API KEY
-if not os.getenv("360_API_KEY"):
+if not os.getenv("API_KEY_360"):
     raise RuntimeError("未设置 360_API_KEY，无法进行 AI 分析")
 
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
@@ -70,7 +70,7 @@ def call_360_llm(messages):
     """直接调用 360 智脑 API，绕过 Langchain 兼容性问题"""
     url = "https://api.360.cn/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {os.getenv('360_API_KEY')}",
+        "Authorization": f"Bearer {os.getenv('API_KEY_360')}",
         "Content-Type": "application/json"
     }
     payload = {

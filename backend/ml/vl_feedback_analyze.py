@@ -73,7 +73,7 @@ def call_360_llm(messages):
     url = "https://api.360.cn/v1/chat/completions"
 
     headers = {
-        "Authorization": f"Bearer {os.getenv('360_API_KEY')}",
+        "Authorization": f"Bearer {os.getenv('API_KEY_360')}",
         "Content-Type": "application/json"
     }
 

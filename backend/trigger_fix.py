@@ -49,7 +49,7 @@ def trigger_reanalysis():
         for count, doc in enumerate(docs, 1):
             async_analyze_feedback.delay(str(doc["_id"]))
             # 建议将状态改成 pending，防止你手抖点两次重复入队浪费 Token
-            db.feedbacks.update_one({"_id": doc["_id"]}, {"$set": {"ai_analyzed": "pending"}})
+            db.feedbacks.update_one({"_id": doc["_id"]}, {"$set": {"ai_analyzed": False}}) # 用 Python 的 False
             print(f"[{count}/10] 已投递 ID: {doc['_id']}")
 
         print(f"✅ 成功投递 {total} 条任务！脚本执行完毕。")
