@@ -87,7 +87,7 @@ def call_360_llm(messages):
         "model": "openai/gpt-5.2", # 确认你的模型编码无误
         "messages": messages,
         "temperature": 0.2,
-        "max_tokens": 1024,
+        "max_completion_tokens":2048,
         "stream": False
     }
     
