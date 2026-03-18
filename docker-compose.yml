@@ -9,7 +9,11 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    restart: unless-stopped
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 100M
     networks:
       - app-network
 
@@ -28,7 +32,11 @@ services:
       MONGO_INITDB_DATABASE: SentinelEye
     volumes:
       - mongo-data:/data/db
-    restart: unless-stopped
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 300M
     networks:
       - app-network
 

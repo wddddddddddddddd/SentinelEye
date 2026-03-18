@@ -1,32 +1,13 @@
-# frontend/Dockerfile
-# 构建阶段
-FROM node:20-alpine as build-stage
+# 直接使用轻量的 Nginx 镜像
+FROM nginx:alpine
 
-WORKDIR /app
+# 1. 关键：直接从当前宿主机的 dist 目录复制到容器内
+# 这里的 dist 是你在本地打好包后传上去的
+COPY dist /usr/share/nginx/html
 
-# 复制 package 文件
-COPY package*.json ./
-
-# 安装依赖（使用 npm ci 保证一致性）
-RUN npm ci --registry=https://registry.npmmirror.com
-
-# 复制源代码
-COPY . .
-
-# 构建应用 - 这会自动使用 production 模式
-RUN npm run build
-
-# 生产阶段
-FROM nginx:alpine as production-stage
-
-# 复制构建产物
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-# 复制 Nginx 配置
+# 2. 复制你的 Nginx 配置
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 暴露端口
 EXPOSE 80
 
-# 启动 Nginx
 CMD ["nginx", "-g", "daemon off;"]
