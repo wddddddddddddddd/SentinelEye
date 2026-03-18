@@ -134,6 +134,9 @@ python backend/services/crawler.py
 # 启动服务
 uvicorn backend.main:app --reload --port 8000
 
+docker compose up -d --build backend worker
+
+
 # 可优化内容
 
 Agent 自动复现：识别到“启动失败”后自动启动虚拟机按用户描述操作复现

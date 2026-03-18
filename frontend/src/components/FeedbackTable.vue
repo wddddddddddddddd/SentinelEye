@@ -32,9 +32,13 @@
                     <i class="fas fa-image"></i>
                   </span>
                 </a>
-                <button v-if="!feedback.is_notified" @click="$emit('notify', feedback)"
-                  class="ml-2 text-xs bg-red-100 text-red-600 hover:bg-red-200 px-2 py-1 rounded" title="标记为已通知">
-                  需通知
+                <button v-if="!feedback.is_notified" @click="$emit('notify', feedback)" :class="[
+                  'ml-2 text-xs px-2 py-1 rounded transition-colors',
+                  getStatusColor(feedback.status) === 'green'
+                    ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                    : 'bg-red-100 text-red-600 hover:bg-red-200'
+                ]" :title="`标记 ${feedback.status} 为已通知`">
+                  {{ feedback.status }}
                 </button>
               </div>
             </td>
@@ -123,13 +127,16 @@ export default {
       return 'pending' // 默认视为待处理
     },
 
-    // 获取状态颜色
+    // 获取状态颜色 (返回 tailwind 颜色前缀)
     getStatusColor(status) {
-      const repliedStatuses = ['已答复', '已处理', '已解决', 'replied', 'resolved']
+      // 绿色状态：已答复、已处理等
+      const repliedStatuses = ['已答复', '已处理', '已解决', 'replied', 'resolved'];
       if (repliedStatuses.includes(status)) {
-        return 'green'
+        return 'green';
       }
-      return 'red'
+      // 红色状态：新人帖、待处理、未处理等
+      // 默认也返回 red，这样即使 status 为空也是红色
+      return 'red';
     },
   }
 }

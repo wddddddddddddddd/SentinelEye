@@ -15,6 +15,17 @@ from backend.celery_app import celery  # 确保导入你的 celery 实例
 # =========================
 load_dotenv(override=True)
 
+# 在你的 celery 配置文件中添加/修改
+celery.conf.update(
+    broker_connection_retry_on_startup=True, # 启动时自动重连
+    redis_max_connections=20,                # 限制最大连接数，防止撑爆 Redis
+    broker_transport_options={
+        'visibility_timeout': 3600,          # 任务超时时间
+        'socket_timeout': 30,                # 强制 socket 超时，防止挂死
+        'retry_on_timeout': True
+    }
+)
+
 # 优先检查 360 API KEY
 if not os.getenv("API_KEY_360"):
     raise RuntimeError("未设置 360_API_KEY，无法进行 AI 分析")
@@ -52,10 +63,9 @@ JSON 结构如下：
 # =========================
 # 2. 工具函数 (内部调用)
 # =========================
+client = MongoClient(MONGODB_URI)
+db = client[DB_NAME]
 
-def get_db_connection():
-    client = MongoClient(MONGODB_URI)
-    return client[DB_NAME]
 
 def image_url_to_base64(url: str) -> str:
     try:
@@ -108,12 +118,11 @@ def build_messages(image_base64: str, forum_text: str):
 # 3. Celery 核心异步任务
 # =========================
 
-@celery.task(bind=True, max_retries=3, default_retry_delay=60)
+@celery.task(bind=True, max_retries=3, default_retry_delay=60, ignore_result=True)
 def async_analyze_feedback(self, feedback_id: str):
     """
     异步执行 AI 分析（生产环境调用）
     """
-    db = get_db_connection()
     
     try:
         # 1. 获取数据

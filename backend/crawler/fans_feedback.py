@@ -286,10 +286,24 @@ def crawl_until_date(target_date: datetime):
         time.sleep(1)  # 添加延迟避免被封
 
 
+from datetime import datetime, timedelta, UTC
+import time
+from bson import ObjectId
+
 def crawl_incremental_once():
-    """增量爬取：爬取最近3天的帖子，更新状态"""
+    """增量爬取：爬取最近3天的帖子，更新状态，并统一触发 AI 分析"""
     cutoff_date = datetime.now(UTC) - timedelta(days=3)
     print(f"增量爬取最近3天的帖子（从{cutoff_date.strftime('%Y-%m-%d %H:%M:%S')}到现在）")
+
+    # ==========================================
+    # 性能优化：在循环外一次性加载所有关键词
+    # 避免每爬一个帖子就查一次数据库
+    # ==========================================
+    keyword_docs = list(keywords_collection.find({}, {"keyword": 1, "_id": 0}))
+    keywords = [doc["keyword"].lower().strip() for doc in keyword_docs if doc.get("keyword")]
+    
+    if not keywords:
+        print("⚠️ 警告: 关键词数据库为空，本次爬取将不会触发任何 AI 分析！")
 
     page = 1
     new_post_count = 0
@@ -297,6 +311,7 @@ def crawl_incremental_once():
 
     while True:
         try:
+            # 假设 fetch_page 和 parse_post_list 在外部已定义
             tree = fetch_page(page)
             posts = parse_post_list(tree)
 
@@ -328,83 +343,95 @@ def crawl_incremental_once():
 
                 # 如果帖子早于3天，跳过
                 if post["created_at"] < cutoff_date:
-                    print(f"跳过3天前的帖子: {post['title']} ({post['created_at'].strftime('%Y-%m-%d')})")
+                    print(f"跳过3天前的帖子: {post.get('title', 'Unknown')} ({post['created_at'].strftime('%Y-%m-%d')})")
                     continue
 
-                # 检查帖子是否已存在
                 existing_post = collection.find_one({"post_id": post["post_id"]})
 
                 try:
-                    # 获取帖子详情
+                    # 获取帖子详情（假设 enrich_post 在外部已定义）
                     enriched_post = enrich_post(post)
                     enriched_post["crawl_time"] = datetime.now(UTC)
 
+                    # 初始化统一变量
+                    inserted_id = None
+                    is_analyzed = False
+                    is_new = False
+
+                    # ==========================================
+                    # 1. 数据库入库与状态更新逻辑
+                    # ==========================================
                     if existing_post:
-                        # 帖子已存在，检查状态是否有变化
+                        # 帖子已存在
+                        inserted_id = str(existing_post['_id'])
+                        is_analyzed = existing_post.get("ai_analyzed", False)  # 读取旧的分析状态
+                        
                         old_status = existing_post.get("status", "")
                         new_status = enriched_post.get("status", "")
 
-                        # 需要更新的字段
                         update_data = {
                             "crawl_time": enriched_post["crawl_time"],
                             "reply_count": enriched_post.get("reply_count", 0),
                             "view_count": enriched_post.get("view_count", 0),
                         }
 
-                        # 如果状态变化了，更新状态
                         if old_status != new_status:
                             update_data["status"] = new_status
                             print(f"[UPDATE] 状态更新: {enriched_post['title']} - {old_status} → {new_status}")
-                            updated_post_count += 1
                         else:
-                            # 即使状态没变化，也更新其他信息
                             print(f"[UPDATE] 信息更新: {enriched_post['title']}")
-                            updated_post_count += 1
-
-                        # 执行更新
-                        collection.update_one(
-                            {"post_id": enriched_post["post_id"]},
-                            {"$set": update_data}
-                        )
-
+                        
+                        collection.update_one({"_id": existing_post['_id']}, {"$set": update_data})
+                        updated_post_count += 1
+                        
                     else:
-                        # 新帖子，插入数据库
+                        # 新帖子
                         result = collection.insert_one(enriched_post)
                         inserted_id = str(result.inserted_id)
+                        is_analyzed = False
+                        is_new = True
                         print(f"[NEW] 新增帖子: {enriched_post['title']} (feedback_id={inserted_id})")
                         new_post_count += 1
 
-                        # ======================
-                        # 初步判断是否需要投递给大模型
-                        # ======================
-                        need_analyze = False
+                    # ==========================================
+                    # 2. 统一的 AI 分析触发逻辑（核心修复区域）
+                    # 无论 NEW 还是 UPDATE，只要没分析过，就走这里的判断
+                    # ==========================================
+                    if not is_analyzed:
                         title = enriched_post.get("title", "").lower()
                         content = enriched_post.get("content", "").lower()
 
-                        # --- 动态关键词触发 ---
-                        keyword_docs = keywords_collection.find({}, {"keyword": 1, "_id": 0})
-                        keywords = [doc["keyword"].lower() for doc in keyword_docs if doc.get("keyword")]
+                        # 关键词匹配
                         if keywords and any(k in title or k in content for k in keywords):
-                                need_analyze = True
-                                print(f"关键词命中触发分析: {inserted_id}")
-
-                        # 有图片（尤其是可能截图）
+                            print(f"🎯 关键词命中触发分析: {inserted_id}")
+                                                # 有图片（尤其是可能截图）
                         # if enriched_post.get("images"):
-                        #     need_analyze = True
+                        # need_analyze = True
 
                         # # 回复数或浏览数较高（表示关注度高）
                         # if enriched_post.get("reply_count", 0) >= 5 or enriched_post.get("view_count", 0) >= 100:
                         #     need_analyze = True
-
-                        if need_analyze:
-                            from backend.celery_app.tasks import async_analyze_feedback
-                            async_analyze_feedback.delay(inserted_id)  # 异步投递
-                            print(f"已投递异步AI分析任务: {inserted_id}")
+                            
+                            try:
+                                from backend.celery_app.tasks import async_analyze_feedback
+                                async_analyze_feedback.delay(inserted_id)  # 异步投递
+                                print(f"🚀 已投递异步AI分析任务: {inserted_id}")
+                                
+                                # 【极度重要】立即打上标记，防止下次爬虫（40分钟后）重复投递
+                                collection.update_one(
+                                    {"_id": ObjectId(inserted_id)}, 
+                                    {"$set": {"ai_analyzed": "pending"}}
+                                )
+                            except Exception as celery_err:
+                                # 异常隔离：Redis 挂了不会导致爬虫崩溃，跳过即可
+                                print(f"❌ Celery 任务投递失败 (请检查 Redis): {celery_err}")
                         else:
-                            print(f"无需深度分析，跳过投递: {inserted_id}")
+                            # 只有新帖子才打印无需分析，减少 UPDATE 刷屏日志
+                            if is_new:
+                                print(f"无需深度分析，跳过投递: {inserted_id}")
 
                 except Exception as e:
-                    print(f"处理帖子失败: {post['title']}, 错误: {e}")
+                    print(f"处理帖子失败: {post.get('title', 'Unknown')}, 错误: {e}")
                     continue
 
             print(f"已处理第{page}页")
@@ -415,7 +442,7 @@ def crawl_incremental_once():
             print(f"获取第{page}页失败: {e}")
             break
 
-    print(f"增量爬取完成！新增 {new_post_count} 个帖子，更新 {updated_post_count} 个帖子")
+    print(f"🎉 增量爬取完成！新增 {new_post_count} 个帖子，更新 {updated_post_count} 个帖子")
 
 
 def crawl_forever(interval_seconds=3600):
