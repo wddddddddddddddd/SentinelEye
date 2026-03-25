@@ -34,30 +34,32 @@ MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("DB_NAME", "SentinelEye")
 
 SYSTEM_PROMPT = """你是【360 客户端稳定性与蓝屏分析 AI】。
-你需要分析来自用户社区的【真实用户反馈】，结合【截图内容 + 文本描述】，判断是否存在：
-- 蓝屏（BSOD）
-- 游戏卡死 / 黑屏
-- 显卡 / 驱动异常
-- 系统关键日志被关闭
-- 可能影响问题溯源的配置异常
+你的任务是分析用户反馈，并将其精准分类。
 
-⚠️ 强制输出规则：
-1. 只能输出 JSON，不允许任何额外文本
-2. risk_level 只能是：low / medium / high
-3. confidence 是 0~1 之间的小数
-4. 只要涉及蓝屏 / 卡死 / 崩溃 / 驱动：need_followup 必须为 true
+⚠️ 核心识别逻辑：
+1. **BUG (故障)**：用户描述了程序崩溃、蓝屏、黑屏、功能不可用、报错代码等异常行为。
+2. **SUGGESTION (建议)**：用户希望增加新功能、改变交互逻辑、或者对现有功能的改进想法。
+3. **COMPLAINT (吐槽)**：无实质内容的情绪化表达（如“垃圾软件”）。
 
-JSON 结构如下：
+⚠️ 可信度 (reliability_score) 评估标准：
+- 1.0: 有详细步骤 + 错误代码/截图 + 电脑配置信息。
+- 0.7: 描述清晰但缺少截图或配置。
+- 0.3: 描述模糊，仅说“坏了”、“打不开”。
+
+⚠️ 强制输出 JSON 格式：
 {
-  "scene": "",
-  "risk_type": "",
-  "risk_level": "",
-  "confidence": 0.0,
-  "key_evidence": [],
-  "analysis": "",
-  "suggestions": [],
-  "need_followup": false
+  "feedback_type": "BUG / SUGGESTION / COMPLAINT",
+  "scene": "发生场景(如: 安装、游戏运行中、关机)",
+  "issue_category": "分类(如: 蓝屏, 驱动冲突, UI交互, 功能缺失)",
+  "risk_level": "low / medium / high",
+  "reliability_score": 0.0,
+  "key_evidence": ["提到的报错码", "截图中的关键文字"],
+  "analysis": "简明扼要的故障原因或建议动机分析",
+  "suggestions": ["给开发者的修复方向", "给用户的临时规避方案"],
+  "need_followup": true/false
 }
+
+⚠️ 规则：只要涉及蓝屏/死机/数据丢失，risk_level 必须为 high，need_followup 必须为 true。
 """
 
 # =========================
@@ -93,11 +95,19 @@ def call_360_llm(messages):
     
     resp = requests.post(url, headers=headers, json=payload, timeout=60)
     if resp.status_code != 200:
-        # 这里抛出异常，方便 Celery 捕获并重试
         raise RuntimeError(f"360 API 调用失败 [{resp.status_code}]: {resp.text}")
     
     data = resp.json()
-    return data["choices"][0]["message"]["content"]
+    choice = data["choices"][0]
+    
+    # 兼容性处理：如果 finish_reason 为空，某些逻辑可能会挂掉
+    # 虽然这里直接取 content，但养成检查习惯更好
+    content = choice.get("message", {}).get("content", "")
+    
+    if not content:
+        raise ValueError("AI 返回内容为空，可能触发了敏感词过滤或接口异常")
+        
+    return content
 
 def build_messages(image_base64: str, forum_text: str):
     """构造 OpenAI 格式的多模态输入"""
