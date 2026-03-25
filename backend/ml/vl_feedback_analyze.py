@@ -80,7 +80,7 @@ def call_360_llm(messages):
     payload = {
         "model": "openai/gpt-5.2",
         "messages": messages,
-        "temperature": 0.2,
+        "temperature": 1,
         "max_tokens": 1024,
         "stream": False
     }
